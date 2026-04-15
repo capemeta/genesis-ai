@@ -6,6 +6,7 @@ import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import { Upload, Filter, X, Check, Search, Folder as FolderIcon } from 'lucide-react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { withAppAssetPath } from '@/lib/app-base'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
@@ -1957,7 +1958,7 @@ export function FileBrowser({ kbId, kbType, selectedFolderId, autoOpenUploadDial
                                     className='h-9 w-9'
                                     title='列显示设置'
                                 >
-                                    <img src='/icons/icon_show_column_setting.svg' alt='' className='h-4 w-4' />
+                                    <img src={withAppAssetPath('icons/icon_show_column_setting.svg')} alt='' className='h-4 w-4' />
                                 </Button>
                             </PopoverTrigger>
                             <PopoverContent className='w-56' align='end'>

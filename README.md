@@ -253,6 +253,8 @@ uv venv --python 3.12
 uv sync --frozen
 ```
 
+> **国内源说明**：项目默认已在 `genesis-ai-platform/uv.toml` 中预置清华 PyPI 镜像，`uv sync`、`uv lock`、`uv pip` 会默认优先使用该镜像源，以提升国内网络环境下的安装速度。
+
 > **重要**：安装完成后，后续所有 Python 命令**必须使用**：
 >
 > ```powershell
@@ -290,8 +292,9 @@ CELERY_RESULT_BACKEND=redis://127.0.0.1:6379/3
 STORAGE_DRIVER=local
 LOCAL_STORAGE_PATH=./storage-data
 
-ROOT_PATH=/
-PUBLIC_API_BASE_URL=http://127.0.0.1:8200
+# 默认把前后端都挂到 /genesis-ai 子路径下。
+ROOT_PATH=/genesis-ai
+PUBLIC_API_BASE_URL=http://127.0.0.1:8200/genesis-ai
 ```
 
 ### 5. 安装前端依赖
@@ -301,9 +304,46 @@ cd ..\genesis-ai-frontend
 pnpm install
 ```
 
+> **国内源说明**：项目默认已在 `genesis-ai-frontend/.npmrc` 中预置 `npmmirror`，`pnpm install` 与 Docker 前端构建阶段都会默认使用该镜像源。
+
+### 5.1 包管理器镜像源说明
+
+当前仓库已默认启用国内镜像源：
+
+- 前端 `pnpm`：`genesis-ai-frontend/.npmrc`
+  - `registry=https://registry.npmmirror.com/`
+- 后端 `uv`：`genesis-ai-platform/uv.toml`
+  - 默认 index：`https://pypi.tuna.tsinghua.edu.cn/simple`
+
+Docker 构建也会复用这两个项目内配置：
+
+- `docker/frontend/Dockerfile` 会把 `genesis-ai-frontend/.npmrc` 复制进构建上下文
+- `docker/backend/Dockerfile` 会把 `genesis-ai-platform/uv.toml` 复制进镜像，并在 `uv sync` 时生效
+
+如果你需要切回官方源，可按下列方式修改：
+
+- 前端：把 `genesis-ai-frontend/.npmrc` 改成
+
+```ini
+registry=https://registry.npmjs.org/
+```
+
+- 后端：把 `genesis-ai-platform/uv.toml` 改成
+
+```toml
+[[index]]
+url = "https://pypi.org/simple"
+default = true
+
+[pip]
+index-url = "https://pypi.org/simple"
+```
+
 ### 6. 启动基础存储组件（PostgreSQL + Redis）
 
 在项目根目录执行：
+
+#### Windows PowerShell
 
 ```powershell
 # 拷贝文件.env.example 重命名为 .env 然后填写值，也可以手动拷贝
@@ -312,21 +352,46 @@ docker compose --env-file .\docker\.env -f .\docker\docker-compose.storage.yml u
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.storage.yml ps
 ```
 
+#### Linux / macOS Bash
+
+```bash
+# 拷贝配置文件后按需修改
+cp ./docker/.env.example ./docker/.env
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.storage.yml up -d
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.storage.yml ps
+```
+
 **启动 SeaweedFS（可选）**：
 
 ```powershell
+# Windows PowerShell
 # 通过 profile 启用分布式对象存储
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.storage.yml --profile object-storage up -d
+```
+
+```bash
+# Linux / macOS Bash
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.storage.yml --profile object-storage up -d
 ```
 
 **停止命令**：
 
 ```powershell
+# Windows PowerShell
 # 停止基础存储服务
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.storage.yml down
 
 # 停止包含 SeaweedFS 的服务
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.storage.yml --profile object-storage down
+```
+
+```bash
+# Linux / macOS Bash
+# 停止基础存储服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.storage.yml down
+
+# 停止包含 SeaweedFS 的服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.storage.yml --profile object-storage down
 ```
 
 如果你所在网络环境拉取 Docker Hub 镜像较慢或超时，可以在 `docker\.env` 中覆盖镜像地址：
@@ -408,18 +473,42 @@ brew install tesseract tesseract-lang
 
 默认示例配置下：
 
-- 前端：`http://localhost:5173`  
+- 前端：`http://127.0.0.1:5173/genesis-ai/`  
   - 账号：admin/Admin@123456
 
-- 后端服务：`http://localhost:8200`
-- Swagger 文档：`http://localhost:8200/docs`
+- 后端服务：`http://127.0.0.1:8200/genesis-ai`
+- Swagger 文档：`http://127.0.0.1:8200/genesis-ai/docs`
 
 ### 10. 方案 A 的存储说明
 
 - 默认推荐 `STORAGE_DRIVER=local`
 - 本地文件存储目录由 `LOCAL_STORAGE_PATH` 控制
 - 如需使用 SeaweedFS，请单独启动 `docker/seaweedfs/docker-compose.yml`，并将后端配置切换为 `STORAGE_DRIVER=seaweedfs`
-- 如果你希望把后端挂到 `/genesis-ai` 这类子路径下，请额外配置反向代理，并同步修改 `ROOT_PATH` 与 `PUBLIC_API_BASE_URL`
+
+### 11. 修改上下文路径
+
+当前仓库默认把应用挂在 `/genesis-ai` 下。如果你想改成别的前缀，例如 `/rag`，请至少同步修改以下配置：
+
+- 宿主机本地开发后端：`genesis-ai-platform/.env`
+  - `ROOT_PATH=/rag`
+  - `PUBLIC_API_BASE_URL=http://127.0.0.1:8200/rag`
+- 宿主机本地开发前端：`genesis-ai-frontend/.env`
+  - `ROOT_PATH=/rag`
+  - `VITE_API_URL=http://127.0.0.1:8200/rag`
+- Docker 全量部署：`docker/.env`
+  - `ROOT_PATH=/rag`
+  - `PUBLIC_API_BASE_URL=` 可留空，本地调试时会自动回退到 `http://localhost:{PORT}{ROOT_PATH}`
+  - 如果是正式部署，建议显式填写真实地址，例如 `https://your-domain.com/rag`
+  - `CORS_ORIGINS` 默认给的是 localhost 开发值；如果正式部署在真实域名下，请改成你的线上 origin，例如 `["https://your-domain.com"]`
+
+如果你前面还有一层统一入口 Nginx，也要同步把转发前缀改成新的上下文路径，例如把 `/genesis-ai/` 改成 `/rag/`。
+
+注意：
+
+- `CORS_ORIGINS` 默认值偏向本地开发；上线前请改成真实域名 origin
+- `CORS_ORIGINS` 只写域名 origin，不带路径。例如 `https://your-domain.com`
+- `PUBLIC_API_BASE_URL` 可以带路径，因为它用于生成对外绝对链接
+- 修改前端相关配置后，需要重新启动 `vite`；修改 Docker 相关配置后，建议重新执行 `docker compose build backend` 再 `docker compose up -d`
 
 ## 启动方式二：Docker一键启动
 
@@ -436,10 +525,30 @@ brew install tesseract tesseract-lang
 
 在项目根目录执行：
 
+#### Windows PowerShell
+
 ```powershell
 # 拷贝文件.env.example 重命名为 .env 然后填写值，也可以手动拷贝  密码之类的请改下
 Copy-Item .\docker\.env.example .\docker\.env
-docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d --build
+
+# 首次部署或 Python 依赖变更时，先只构建统一后端镜像
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml build backend
+
+# 再启动全部服务
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d
+```
+
+#### Linux / macOS Bash
+
+```bash
+# 拷贝配置文件后按需修改，尤其是密码、CORS、PUBLIC_API_BASE_URL 等
+cp ./docker/.env.example ./docker/.env
+
+# 首次部署或 Python 依赖变更时，先只构建统一后端镜像
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml build backend
+
+# 再启动全部服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml up -d
 ```
 
 如果你所在网络环境拉取 Docker Hub 镜像较慢或超时，可以在 `docker\.env` 中覆盖镜像地址：
@@ -462,15 +571,26 @@ NODE_BASE_IMAGE=docker.m.daocloud.io/library/node:20-bookworm
 NGINX_BASE_IMAGE=docker.m.daocloud.io/library/nginx:1.27-alpine
 ```
 
-如果你还希望同时启动 SeaweedFS，可执行：
+- 如果你还希望同时启动 SeaweedFS，可执行：
+
 
 ```powershell
-docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --profile object-storage up -d --build
+# Windows PowerShell
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml build backend
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --profile object-storage up -d
 ```
 
-停止 `docker-compose.full.yml` 启动的服务：
+```bash
+# Linux / macOS Bash
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml build backend
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml --profile object-storage up -d
+```
+
+- 停止 `docker-compose.full.yml` 启动的服务：
+
 
 ```powershell
+# Windows PowerShell
 # 停止不带 object-storage profile 的全量服务
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml down
 
@@ -478,25 +598,33 @@ docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml down
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --profile object-storage down
 ```
 
-如果你希望在停止时同时删除数据卷（会清空 PostgreSQL / Redis / SeaweedFS / 后端持久化数据），可改用：
+```bash
+# Linux / macOS Bash
+# 停止不带 object-storage profile 的全量服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml down
+
+# 停止带 object-storage profile 的全量服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml --profile object-storage down
+```
+
+- 如果你希望在停止时<font color=red>同时删除数据卷（会清空 PostgreSQL / Redis / SeaweedFS / 后端持久化数据）</font>，可改用：
+
 
 ```powershell
+# Windows PowerShell
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml down -v
 docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --profile object-storage down -v
 ```
 
+```bash
+# Linux / macOS Bash
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml down -v
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml --profile object-storage down -v
+```
+
 ### 2. Docker一键部署说明
 
-**Docker 镜像优化说明（重要更新）：**
-
-- **parse-worker** 使用独立的 `Dockerfile.parse`，**仅在此容器中安装 `tesseract-ocr` 及其语言包**（eng + chi_sim）
-- 其他服务（backend、chunk-worker、enhance-worker 等）使用轻量版 `Dockerfile`，**不再包含 tesseract**，可减少约 80-150MB 镜像体积
-- 所有后端服务共享 Python 依赖层（uv sync），构建缓存利用率高
-- 该优化显著减少了不必要的镜像体积和内存占用，同时保持功能完整
-
-**其他说明：**
-
-- 该方案中的 **parse-worker** 镜像已内置 `Tesseract`，宿主机无需再单独安装
+- 该方案中的统一后端镜像已内置 `Tesseract`，宿主机无需再单独安装
 - 默认仍使用本地存储：`STORAGE_DRIVER=local`
 - 若要改为 SeaweedFS，需要配合 `object-storage` profile，并在 `docker/.env` 中同时配置 `STORAGE_DRIVER=seaweedfs`、`SEAWEEDFS_ENDPOINT`、`SEAWEEDFS_ACCESS_KEY`、`SEAWEEDFS_SECRET_KEY`
 - 首次启动时，PostgreSQL 同样会自动执行初始化脚本，并自动导入 `docker\postgresql\init-schema.sql`
@@ -506,13 +634,115 @@ docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --pr
 - 为了和正式部署保持一致，Celery 默认按队列拆分为独立 worker；其中 `default` 队列负责低频维护与清理任务
 - 本地开发与 Docker Compose 是两套启动入口：本地开发优先使用 `start-backend.bat`、`start-frontend.bat`、`start-celery.bat`；全量容器化部署优先使用 `docker compose ... up -d --build`
 
-### 3. 访问地址
+### 3. Docker 更新代码时怎么执行
 
-- **前端：`http://localhost:5173`  **
+当前 `docker/docker-compose.full.yml` 不会把前后端源码目录挂载进容器，前端和后端代码都会在镜像构建阶段打包进镜像。因此：
+
+- 修改 `genesis-ai-frontend` 或 `genesis-ai-platform` 代码后，**需要重新 build**
+- 只执行 `docker compose ... up -d`，**不会**自动把宿主机最新源码同步进已存在镜像
+- 最省心的做法是直接执行 `docker compose ... up -d --build`
+
+常见场景可直接使用下列命令：
+
+#### Windows PowerShell
+
+```powershell
+# 1. 前后端代码都有更新：直接全量重建并后台启动
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d --build
+
+# 2. 只更新前端代码：只重建前端
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d --build frontend
+
+# 3. 只更新后端代码：重建统一后端镜像并重启全部后端相关服务
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d --build backend parse-worker chunk-worker enhance-worker train-worker websync-worker default-worker celery-beat
+
+# 4. 只修改 docker/.env、端口映射、restart 策略等运行配置：通常无需重建镜像
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d
+```
+
+#### Linux / macOS Bash
+
+```bash
+# 1. 前后端代码都有更新：直接全量重建并后台启动
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml up -d --build
+
+# 2. 只更新前端代码：只重建前端
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml up -d --build frontend
+
+# 3. 只更新后端代码：重建统一后端镜像并重启全部后端相关服务
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml up -d --build backend parse-worker chunk-worker enhance-worker train-worker websync-worker default-worker celery-beat
+
+# 4. 只修改 docker/.env、端口映射、restart 策略等运行配置：通常无需重建镜像
+docker compose --env-file ./docker/.env -f ./docker/docker-compose.full.yml up -d
+```
+
+补充说明：
+
+- 修改 `docker/frontend/Dockerfile`、`docker/backend/Dockerfile`、前后端依赖文件时，也需要重新 `build`
+- 修改 `ROOT_PATH`、`FRONTEND_PORT` 等 Docker 运行配置后，建议执行 `docker compose ... up -d --build`，避免前端构建参数与运行参数不一致
+- 如果只是重启已有容器而未重建镜像，容器里仍然会使用旧代码
+
+### 4. Docker 端口说明
+
+`docker/docker-compose.full.yml` 当前默认端口策略如下：
+
+| 服务 | 容器内端口 | 宿主机端口 | 默认是否占用宿主机端口 | 说明 |
+|------|-----------|-----------|----------------------|------|
+| `frontend` | `80` | `127.0.0.1:5173` | 是 | 当前唯一默认映射到宿主机的入口，供浏览器或外层统一入口 Nginx 访问 |
+| `backend` | `8200` | 无 | 否 | 仅容器内部使用，由 `frontend` 反向代理到后端 |
+| `postgres` | `5432` | 无 | 否 | 仅容器内部使用，不占用宿主机 `5432` |
+| `redis` | `6379` | 无 | 否 | 仅容器内部使用，不占用宿主机 `6379` |
+| `parse-worker` / `chunk-worker` / `enhance-worker` / `train-worker` / `websync-worker` / `default-worker` / `celery-beat` | 无固定 HTTP 端口 | 无 | 否 | 异步任务进程，不对外提供端口 |
+| `seaweedfs`（启用 `object-storage` profile 时） | `9333` / `8080` / `8888` / `8333` | `8301` / `8302` / `8303` / `8304` | 是 | 仅在显式启用 `--profile object-storage` 时才会占用宿主机端口 |
+
+说明：
+
+- “容器内端口”是服务在 Docker 网络内监听的端口，容器之间可以直接互相访问
+- “宿主机端口”只有在 `ports:` 映射存在时才会被占用
+- 没有映射到宿主机的服务，**不会占用宿主机端口**，但容器之间仍然可以通过服务名访问，例如：
+  - `backend -> postgres:5432`
+  - `backend -> redis:6379`
+  - `frontend -> backend:8200`
+
+### 5. 哪些默认需要暴露
+
+- 默认需要暴露给宿主机的只有 `frontend`
+- 默认不暴露给宿主机的有：`backend`、`postgres`、`redis`、所有 Celery Worker / Beat
+- `seaweedfs` 默认也不启动；只有启用 `object-storage` profile 后，才会暴露 `8301` ~ `8304`
+
+推荐做法：
+
+- 本机自测：直接访问 `http://127.0.0.1:5173/genesis-ai/`
+- 生产部署：建议继续只保留 `frontend` 这个宿主机入口，再由外层统一入口 Nginx 转发
+- 不建议直接把 `postgres`、`redis` 暴露到公网
+
+### 6. 如果要改端口暴露，改哪里
+
+- 修改前端宿主机端口：编辑 `docker/.env` 中的 `FRONTEND_PORT`
+- 修改上下文路径：编辑 `docker/.env` 中的 `ROOT_PATH`
+- 如果你确实要把某个服务暴露到宿主机，需要编辑 `docker/docker-compose.full.yml`，为对应服务增加或修改 `ports:` 映射
+
+示例：
+
+- 当前前端端口映射：`127.0.0.1:${FRONTEND_PORT}:80`
+- 如果你要让前端直接对外监听所有网卡，可改成：`${FRONTEND_PORT}:80`
+- 如果你要临时暴露 PostgreSQL，可在 `postgres` 下增加：`${POSTGRES_PORT}:5432`
+- 如果你要临时暴露 Redis，可在 `redis` 下增加：`${REDIS_PORT}:6379`
+- 如果你要临时暴露后端，可在 `backend` 下增加：`${BACKEND_PORT}:8200`
+
+注意：
+
+- 修改 `docker/.env` 后，重新执行 `docker compose ... up -d --build`
+- 新增 `ports:` 映射后，对应宿主机端口会立即被占用；如果该端口已被其他程序使用，容器会启动失败
+- 如果使用外层统一入口 Nginx，通常**不需要**直接暴露 `backend`
+
+### 7. 访问地址
+
+- **前端：`http://127.0.0.1:5173/genesis-ai/`  **
   - **账号：admin/Admin@123456**
 
-- 后端服务：`http://localhost:8200`
-- Swagger 文档：`http://localhost:8200/docs`
+- Swagger 文档：`http://127.0.0.1:5173/genesis-ai/docs`
+- 说明：当前 Docker 一键部署默认**不直接暴露**后端 `8200`；浏览器访问后端 API / 文档时，统一走前端入口反向代理
 
 ## OCR / Docling 说明（当前状态）
 
@@ -531,7 +761,7 @@ docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml --pr
 - 前端无法启动：确认已安装 `pnpm` 且执行过 `pnpm install`
 - 接口报数据库或 Redis 错误：确认对应 Compose 服务已经正常启动
 - OCR 不生效：优先检查 `parse-worker` 日志（`docker logs genesis-ai-full-parse-worker-1`），确认 tesseract 是否正常工作
-- Docker 镜像过大：现在 parse-worker 专用包含 tesseract，其他 worker 已优化为轻量版
+- Docker 首次构建下载慢：当前已改为统一后端镜像复用模式，若仍然较慢，优先检查网络与 Python 包源连通性
 
 ## 开源声明
 

@@ -29,7 +29,7 @@ echo IMPORTANT: Celery workers should be started separately!
 echo Run start-celery.bat in another terminal to start Celery services.
 echo.
 echo Starting FastAPI server...
-echo Server URL: http://localhost:8200
-echo API Docs: http://localhost:8200/docs
+echo Server URL: http://127.0.0.1:8200/genesis-ai
+echo API Docs: http://127.0.0.1:8200/genesis-ai/docs
 echo.
 uv run uvicorn main:app --reload --host 0.0.0.0 --port 8200

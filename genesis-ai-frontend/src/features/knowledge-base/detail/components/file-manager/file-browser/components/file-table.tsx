@@ -19,6 +19,7 @@ import {
     Copy,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { withAppAssetPath } from '@/lib/app-base'
 import { Button } from '@/components/ui/button'
 import { Checkbox } from '@/components/ui/checkbox'
 import { Badge } from '@/components/ui/badge'
@@ -511,7 +512,7 @@ export function FileTable({
                                                         title={isWebKnowledgeBase ? '查看同步错误' : '查看解析日志'}
                                                     >
                                                         <img 
-                                                            src="/icons/icon_doc_file_parse_log.svg" 
+                                                            src={withAppAssetPath('icons/icon_doc_file_parse_log.svg')} 
                                                             alt="日志" 
                                                             className="h-4 w-4"
                                                         />
@@ -684,9 +685,9 @@ export function FileTable({
                                                 ) : file.status === 'Processing' ? (
                                                     <X className='h-4 w-4' />
                                                 ) : file.status === 'Pending' ? (
-                                                    <img src='/icons/icon_start_chunkking.svg' alt='' className='h-4 w-4' />
+                                                    <img src={withAppAssetPath('icons/icon_start_chunkking.svg')} alt='' className='h-4 w-4' />
                                                 ) : (
-                                                    <img src='/icons/icon_restart_chunkking.svg' alt='' className='h-4 w-4' />
+                                                    <img src={withAppAssetPath('icons/icon_restart_chunkking.svg')} alt='' className='h-4 w-4' />
                                                 )}
                                             </Button>
                                             {/* Web 类型不展示“解析配置”，避免与“同步网页”语义冲突；当前行内解析配置入口暂不可用 */}
@@ -703,7 +704,7 @@ export function FileTable({
                                                                     disabled
                                                                     aria-label='解析配置（暂不支持）'
                                                                 >
-                                                                    <img src='/icons/icon_chunkking_setting.svg' alt='' className='h-4 w-4' />
+                                                                    <img src={withAppAssetPath('icons/icon_chunkking_setting.svg')} alt='' className='h-4 w-4' />
                                                                 </Button>
                                                             </span>
                                                         </TooltipTrigger>
@@ -721,7 +722,7 @@ export function FileTable({
                                                 onClick={() => onEditMetadata(file)}
                                                 title='编辑标签与元数据'
                                             >
-                                                <img src='/icons/icon_tags.svg' alt='' className='h-4 w-4' />
+                                                <img src={withAppAssetPath('icons/icon_tags.svg')} alt='' className='h-4 w-4' />
                                             </Button>
                                             {/* 更多操作 */}
                                             <DropdownMenu>
@@ -785,7 +786,7 @@ export function FileTable({
                     <DialogHeader>
                         <DialogTitle className="flex items-center gap-2">
                             <img 
-                                src="/icons/icon_doc_file_parse_log.svg" 
+                                src={withAppAssetPath('icons/icon_doc_file_parse_log.svg')} 
                                 alt="日志" 
                                 className="h-5 w-5"
                             />

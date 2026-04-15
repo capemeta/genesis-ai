@@ -1,4 +1,5 @@
 import { Link } from '@tanstack/react-router'
+import { withAppAssetPath } from '@/lib/app-base'
 import useDialogState from '@/hooks/use-dialog-state'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Button } from '@/components/ui/button'
@@ -23,7 +24,7 @@ export function ProfileDropdown() {
         <DropdownMenuTrigger asChild>
           <Button variant='ghost' className='relative h-8 w-8 rounded-full'>
             <Avatar className='h-8 w-8'>
-              <AvatarImage src='/avatars/01.png' alt='@shadcn' />
+              <AvatarImage src={withAppAssetPath('avatars/01.png')} alt='@shadcn' />
               <AvatarFallback>SN</AvatarFallback>
             </Avatar>
           </Button>

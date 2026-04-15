@@ -21,6 +21,7 @@ import {
   Command,
   GalleryVerticalEnd,
 } from 'lucide-react'
+import { withAppAssetPath } from '@/lib/app-base'
 import { ClerkLogo } from '@/assets/clerk-logo'
 import { type SidebarData } from '../types'
 
@@ -28,7 +29,7 @@ export const sidebarData: SidebarData = {
   user: {
     name: 'satnaing',
     email: 'satnaingdev@gmail.com',
-    avatar: '/avatars/shadcn.jpg',
+    avatar: withAppAssetPath('avatars/shadcn.jpg'),
   },
   teams: [
     {

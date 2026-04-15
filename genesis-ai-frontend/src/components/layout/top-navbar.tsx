@@ -1,5 +1,6 @@
 import { Link, useRouterState } from '@tanstack/react-router'
 import { Bell } from 'lucide-react'
+import { withAppAssetPath } from '@/lib/app-base'
 import { cn, getFileUrl } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
@@ -186,7 +187,10 @@ export function TopNavbar() {
             <DropdownMenuTrigger asChild>
               <Button variant='ghost' className='relative h-9 w-9 rounded-full p-0 ml-1 hover:bg-muted/50 transition-colors'>
                 <Avatar className='h-9 w-9 ring-2 ring-border/50 ring-offset-2 ring-offset-background transition-all hover:ring-primary/50'>
-                  <AvatarImage src={getFileUrl(user?.avatar_url) || '/avatars/shadcn.jpg'} alt='User' />
+                  <AvatarImage
+                    src={getFileUrl(user?.avatar_url) || withAppAssetPath('avatars/shadcn.jpg')}
+                    alt='User'
+                  />
                   <AvatarFallback className='bg-gradient-to-br from-primary/20 to-primary/10 text-primary font-semibold'>
                     {getUserInitials()}
                   </AvatarFallback>

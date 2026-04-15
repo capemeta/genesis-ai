@@ -7,6 +7,7 @@ from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from redis.asyncio import Redis
 from core.database import get_redis
+from core.config.settings import settings
 from core.security import CaptchaService, get_captcha_service
 from core.response import ResponseBuilder
 from utils.request_utils import get_client_ip
@@ -50,8 +51,10 @@ async def create_captcha(
         expire_seconds=300,  # 5 分钟
     )
     
-    # 构建图片 URL
-    base_url = str(request.base_url).rstrip('/')
+    # 优先使用显式配置的公网基地址，避免多层反向代理或非标准端口下生成错误的绝对 URL。
+    base_url = (settings.PUBLIC_API_BASE_URL or "").strip().rstrip("/")
+    if not base_url:
+        base_url = str(request.base_url).rstrip('/')
     image_url = f"{base_url}/api/v1/captcha/image/{token}"
     
     return ResponseBuilder.build_success(

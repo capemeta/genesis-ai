@@ -1,4 +1,4 @@
-import axiosInstance, { API_BASE_URL } from '@/lib/api/axios-instance'
+import axiosInstance, { resolveApiUrl } from '@/lib/api/axios-instance'
 import type { ApiResponse, PaginatedResponse } from '@/lib/api/types'
 import { useAuthStore } from '@/stores/auth-store'
 import type {
@@ -194,8 +194,8 @@ export async function sendChatMessage(
 }
 
 function buildStreamUrl(sessionId: string): string {
-  const base = API_BASE_URL.endsWith('/') ? API_BASE_URL.slice(0, -1) : API_BASE_URL
-  return `${base}/api/v1/chat/sessions/${sessionId}/messages/stream`
+  // 统一复用 API URL 解析逻辑，兼容 Docker 子路径部署与本地源码启动。
+  return resolveApiUrl(`/api/v1/chat/sessions/${sessionId}/messages/stream`)
 }
 
 function buildStreamHeaders(): HeadersInit {

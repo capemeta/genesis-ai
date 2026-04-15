@@ -2,6 +2,7 @@ import { memo, useState, useMemo } from 'react'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { AxiosError } from 'axios'
 import { toast } from 'sonner'
+import { withAppAssetPath } from '@/lib/app-base'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
@@ -413,7 +414,7 @@ export const ChunkCard = memo(function ChunkCard({
                 }
               >
                 <img
-                  src='/icons/icon_edit_chunk.svg'
+                  src={withAppAssetPath('icons/icon_edit_chunk.svg')}
                   alt='edit'
                   className='h-4 w-4'
                 />

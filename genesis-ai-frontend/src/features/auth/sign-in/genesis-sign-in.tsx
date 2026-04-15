@@ -2,6 +2,7 @@
  * Genesis AI 登录页面组件
  */
 import { useSearch } from '@tanstack/react-router'
+import { withAppBasePath } from '@/lib/app-base'
 import {
   Card,
   CardContent,
@@ -34,14 +35,14 @@ export function GenesisSignIn() {
           <p className='px-8 text-center text-sm text-muted-foreground'>
             登录即表示您同意我们的{' '}
             <a
-              href='/terms'
+              href={withAppBasePath('/terms')}
               className='underline underline-offset-4 hover:text-primary'
             >
               服务条款
             </a>{' '}
             和{' '}
             <a
-              href='/privacy'
+              href={withAppBasePath('/privacy')}
               className='underline underline-offset-4 hover:text-primary'
             >
               隐私政策

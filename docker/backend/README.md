@@ -2,45 +2,29 @@
 
 ## 文件结构
 
-- `Dockerfile.base` - 基础镜像（不包含 tesseract-ocr），用于 backend 和大多数 Celery worker
-- `Dockerfile` - 实际用于 backend 和非 parse worker（FROM Dockerfile.base 的简化版）
-- `Dockerfile.parse` - 专用于 parse-worker，包含 tesseract-ocr 及其语言包（eng + chi_sim）
+- `Dockerfile` - 当前统一后端运行时镜像，供 backend / 全部 Celery worker / beat 复用
 
 ## 优化说明
 
-**之前的问题：**
-- 所有 8 个后端服务（backend + 7 个 worker）都安装 tesseract-ocr + 中文/英文语言包
-- 导致每个镜像都 ~1.95GB，且重复打包不必要的依赖
-- 不同 worker 构建出不同的 Image ID，未有效共享 Docker layer
+**当前策略：**
 
-**现在的优化：**
-
-1. **parse-worker** 专用镜像：仅此容器包含 tesseract（OCR 解析必需）
-2. **其他服务** 使用轻量基础镜像：减少 ~80-150MB/镜像
-3. **docker-compose.full.yml** 使用 YAML anchor 分别指定构建配置
-4. 共享 Python 依赖层（`uv sync`），构建缓存更高效
+1. 所有后端服务统一复用同一个运行时镜像
+2. OCR 所需的 `tesseract-ocr` 与语言包直接安装进统一镜像
+3. `docker-compose.full.yml` 中只有 `backend` 带 `build`
+4. 其余 worker / beat 仅复用同一个 `image`，避免首次冷构建时重复执行 `uv sync`
 
 ## 构建命令
 
 ```powershell
-# 重新构建所有服务（会使用新的优化配置）
-docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d --build
+# 首次部署或依赖变更时，先只构建统一后端镜像
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml build backend
 
-# 只重建 parse-worker（包含 tesseract）
-docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml build parse-worker
-
-# 只重建其他后端服务（轻量版）
-docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml build backend chunk-worker
+# 再启动全部服务
+docker compose --env-file .\docker\.env -f .\docker\docker-compose.full.yml up -d
 ```
 
-## 镜像体积对比（预期）
+## 说明
 
-- `parse-worker`: ~1.95GB（包含 tesseract）
-- `backend` / `chunk-worker` / `enhance-worker` 等: 减少 80-150MB
-- 总体磁盘占用显著降低，首次拉取速度提升
-
-## 注意事项
-
-- `pytesseract` Python 包仍在所有服务中安装（因为是共享依赖）
-- 但 **系统层** 的 tesseract 可执行文件和语言数据只在 parse-worker 中存在
-- 如果你看到 parse-worker 启动报 tesseract 相关错误，请检查语言包是否正确安装
+- `parse-worker`、`chunk-worker`、`enhance-worker`、`train-worker`、`websync-worker`、`default-worker`、`celery-beat` 均直接复用 `backend` 构建出的镜像
+- 首次冷构建时，Python 依赖只需要完整下载一次
+- 如果你看到 OCR 相关错误，请优先检查统一后端镜像中的 `tesseract` 是否安装成功

@@ -8,6 +8,7 @@ import {
 } from '@tanstack/react-query'
 import { RouterProvider, createRouter } from '@tanstack/react-router'
 import { toast } from 'sonner'
+import { APP_BASE_PATH, stripAppBasePath } from '@/lib/app-base'
 import { DirectionProvider } from './context/direction-provider'
 import { FontProvider } from './context/font-provider'
 import { ThemeProvider } from './context/theme-provider'
@@ -58,7 +59,10 @@ const queryClient = new QueryClient({
           // 这里负责 UI 层处理：显示提示 + 跳转登录页
           
           // 只在非登录页显示提示
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          if (
+            typeof window !== 'undefined' &&
+            stripAppBasePath(window.location.pathname) !== '/login'
+          ) {
             toast.error('登录已过期，请重新登录')
             
             // 跳转到登录页
@@ -85,6 +89,7 @@ const queryClient = new QueryClient({
 // Create a new router instance
 const router = createRouter({
   routeTree,
+  basepath: APP_BASE_PATH,
   context: { queryClient },
   defaultPreload: 'intent',
   defaultPreloadStaleTime: 0,

@@ -150,7 +150,7 @@ docker/.env
 # doc/weknora/code/docreader/  # 若为外部/生成代码可忽略
 /genesis-ai-platform/storage-data
 /genesis-ai-platform/tests/native/output
-
+/genesis-ai-platform/.env
 .cursor
 .uploads
 .kiro

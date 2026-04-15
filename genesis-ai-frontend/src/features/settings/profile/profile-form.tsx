@@ -5,6 +5,7 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Camera, KeyRound, Laptop, Loader2, LogOut } from 'lucide-react'
 import { toast } from 'sonner'
+import { withAppAssetPath } from '@/lib/app-base'
 import { getFileUrl } from '@/lib/utils'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -98,7 +99,7 @@ function formatDateTime(value?: string | null) {
 }
 
 export function ProfileForm() {
-  const defaultAvatarUrl = '/images/default-avatar.png'
+  const defaultAvatarUrl = withAppAssetPath('images/default-avatar.png')
   const queryClient = useQueryClient()
   const { setTheme } = useTheme()
   const avatarInputRef = useRef<HTMLInputElement | null>(null)

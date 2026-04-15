@@ -10,7 +10,7 @@ import axios from 'axios'
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { getCurrentUserInfo, login as loginApi, logout as logoutApi, type LoginRequest, type LoginResponse } from '@/lib/api/auth'
-import { API_BASE_URL } from '@/lib/api/axios-instance'
+import { resolveApiUrl } from '@/lib/api/axios-instance'
 import { SUPER_ADMIN_PERMISSION, SUPER_ADMIN_ROLE } from '@/lib/auth/auth-const'
 
 export interface AuthUser {
@@ -226,7 +226,7 @@ export const useAuthStore = create<AuthState>()(
         try {
           // Cookie 模式：withCredentials: true，refresh_token Cookie 自动携带
           const response = await axios.post(
-            `${API_BASE_URL}/api/v1/auth/refresh`,
+            resolveApiUrl('/api/v1/auth/refresh'),
             {},
             { withCredentials: true }
           )
@@ -244,7 +244,7 @@ export const useAuthStore = create<AuthState>()(
             await new Promise(resolve => setTimeout(resolve, 1000))
             
             const retryResponse = await axios.post(
-              `${API_BASE_URL}/api/v1/auth/refresh`,
+              resolveApiUrl('/api/v1/auth/refresh'),
               {},
               { withCredentials: true }
             )

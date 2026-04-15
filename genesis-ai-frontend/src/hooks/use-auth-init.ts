@@ -11,6 +11,7 @@
  * 🔥 防止重复调用：使用 store 中的 initialized 状态，确保整个应用生命周期只初始化一次
  */
 import { useEffect } from 'react'
+import { stripAppBasePath } from '@/lib/app-base'
 import { useGenesisAuthStore } from '@/stores/genesis-auth-store'
 
 export function useAuthInit() {
@@ -24,7 +25,10 @@ export function useAuthInit() {
     }
 
     // 🔥 如果在登录页，不检查认证状态（避免循环）
-    if (typeof window !== 'undefined' && window.location.pathname === '/login') {
+    if (
+      typeof window !== 'undefined' &&
+      stripAppBasePath(window.location.pathname) === '/login'
+    ) {
       console.log('[AuthInit] On login page, skipping auth check')
       setLoading(false)
       setInitialized(true)

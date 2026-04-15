@@ -1,18 +1,26 @@
 name: genesis-ai-full
 
-# 后端基础构建（不包含 tesseract-ocr，仅用于 backend 和大多数 worker）
+# 后端统一构建：backend / 全部 worker / beat 复用同一个镜像，避免首次冷构建时重复执行 uv sync。
 x-backend-base: &backend-base
   context: ..
   dockerfile: docker/backend/Dockerfile
   args:
     PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim}
 
-# 专用于 parse-worker 的构建（包含 tesseract-ocr，用于 OCR 解析）
-x-parse-build: &parse-build
-  context: ..
-  dockerfile: docker/backend/Dockerfile.parse
-  args:
-    PYTHON_BASE_IMAGE: ${PYTHON_BASE_IMAGE:-python:3.12-slim}
+x-backend-service: &backend-service
+  image: ${BACKEND_RUNTIME_IMAGE:-genesis-ai-backend:local}
+  restart: unless-stopped
+  env_file:
+    - ./.env
+  depends_on:
+    postgres:
+      condition: service_healthy
+    redis:
+      condition: service_healthy
+  volumes:
+    - backend_storage:/app/genesis-ai-platform/storage-data
+    - backend_uploads:/app/genesis-ai-platform/uploads
+    - backend_logs:/app/genesis-ai-platform/logs
 
 services:
   postgres:
@@ -24,8 +32,6 @@ services:
     environment:
       POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
-    ports:
-      - "${POSTGRES_PORT:-5432}:5432"
     volumes:
       # PostgreSQL 18+ 推荐挂载到 /var/lib/postgresql，避免旧 data 目录布局导致启动失败。
       - postgres_data:/var/lib/postgresql
@@ -43,8 +49,6 @@ services:
     # 默认使用原始 Docker Hub 镜像；网络受限时可通过环境变量切换到国内镜像。
     image: ${REDIS_IMAGE:-redis:7-alpine}
     restart: unless-stopped
-    ports:
-      - "${REDIS_PORT:-6379}:6379"
     command: redis-server --appendonly yes
     volumes:
       - redis_data:/data
@@ -55,21 +59,9 @@ services:
       retries: 10
 
   backend:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    ports:
-      - "${BACKEND_PORT:-8200}:8200"
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    # 信任上游反向代理透传的协议头，确保 HTTPS 入口下 Cookie/URL 判断正确。
+    command: ["uv", "run", "--no-dev", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8200", "--proxy-headers", "--forwarded-allow-ips", "*"]
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS http://localhost:8200/api/v1/health || exit 1"]
       interval: 20s
@@ -77,116 +69,32 @@ services:
       retries: 10
 
   parse-worker:
-    build: *parse-build
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "parse", "--pool=threads", "--concurrency=1", "--loglevel=info", "-n", "parse@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "parse", "--pool=threads", "--concurrency=1", "--loglevel=info", "-n", "parse@%h"]
 
   chunk-worker:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "chunk", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "chunk@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "chunk", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "chunk@%h"]
 
   enhance-worker:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "enhance", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "enhance@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "enhance", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "enhance@%h"]
 
   train-worker:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "train", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "train@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "train", "--pool=threads", "--concurrency=3", "--loglevel=info", "-n", "train@%h"]
 
   websync-worker:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "web_sync", "--pool=threads", "--concurrency=4", "--loglevel=info", "-n", "websync@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "web_sync", "--pool=threads", "--concurrency=4", "--loglevel=info", "-n", "websync@%h"]
 
   default-worker:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "default", "--pool=threads", "--concurrency=2", "--loglevel=info", "-n", "default@%h"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "worker", "-Q", "default", "--pool=threads", "--concurrency=2", "--loglevel=info", "-n", "default@%h"]
 
   celery-beat:
-    build: *backend-base
-    restart: unless-stopped
-    env_file:
-      - ./.env
-    depends_on:
-      postgres:
-        condition: service_healthy
-      redis:
-        condition: service_healthy
-    command: ["uv", "run", "celery", "-A", "tasks.celery_tasks", "beat", "--loglevel=info"]
-    volumes:
-      - backend_storage:/app/genesis-ai-platform/storage-data
-      - backend_uploads:/app/genesis-ai-platform/uploads
-      - backend_logs:/app/genesis-ai-platform/logs
+    <<: *backend-service
+    command: ["uv", "run", "--no-dev", "celery", "-A", "tasks.celery_tasks", "beat", "--loglevel=info"]
 
   frontend:
     build:
@@ -195,14 +103,19 @@ services:
       args:
         NODE_BASE_IMAGE: ${NODE_BASE_IMAGE:-node:20-bookworm}
         NGINX_BASE_IMAGE: ${NGINX_BASE_IMAGE:-nginx:1.27-alpine}
-        VITE_API_URL: ${VITE_API_URL:-http://localhost:8200}
+        ROOT_PATH: ${ROOT_PATH:-/}
+        VITE_API_URL: ${ROOT_PATH:-/}
         VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
     restart: unless-stopped
     depends_on:
       backend:
         condition: service_healthy
+    environment:
+      ROOT_PATH: ${ROOT_PATH:-/}
     ports:
-      - "${FRONTEND_PORT:-5173}:80"
+      - "127.0.0.1:${FRONTEND_PORT:-5173}:80"
+    volumes:
+      - frontend_nginx_logs:/var/log/nginx
 
   seaweedfs:
     # 默认使用原始 Docker Hub 镜像；网络受限时可通过环境变量切换到国内镜像。
@@ -234,4 +147,5 @@ volumes:
   backend_storage:
   backend_uploads:
   backend_logs:
+  frontend_nginx_logs:
   seaweedfs_data:

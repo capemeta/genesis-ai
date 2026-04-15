@@ -1,4 +1,5 @@
 import { Logo } from '@/assets/logo'
+import { withAppBasePath } from '@/lib/app-base'
 import { cn } from '@/lib/utils'
 import dashboardDark from './assets/dashboard-dark.png'
 import dashboardLight from './assets/dashboard-light.png'
@@ -26,14 +27,14 @@ export function SignIn2() {
           <p className='px-8 text-center text-sm text-muted-foreground'>
             By clicking sign in, you agree to our{' '}
             <a
-              href='/terms'
+              href={withAppBasePath('/terms')}
               className='underline underline-offset-4 hover:text-primary'
             >
               Terms of Service
             </a>{' '}
             and{' '}
             <a
-              href='/privacy'
+              href={withAppBasePath('/privacy')}
               className='underline underline-offset-4 hover:text-primary'
             >
               Privacy Policy

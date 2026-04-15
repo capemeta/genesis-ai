@@ -4,7 +4,9 @@
  * - 非图片类：有对应图标则用；html/htm 使用 icon-web-url.svg；否则用 icon_file_unkown.svg
  */
 
-const ICON_BASE = '/icons/file-types'
+import { withAppAssetPath } from '@/lib/app-base'
+
+const ICON_BASE = withAppAssetPath('icons/file-types')
 
 /** 暂无文件时的空状态图标 */
 export const NO_FILE_ICON_URL = `${ICON_BASE}/icon_no_file.svg`

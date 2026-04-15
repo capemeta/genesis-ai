@@ -1,0 +1,74 @@
+name: genesis-ai-storage
+
+services:
+  postgres:
+    # 默认使用原始 Docker Hub 镜像；网络受限时可通过环境变量切换到国内镜像。
+    image: ${POSTGRES_IMAGE:-pgvector/pgvector:pg18-trixie}
+    restart: unless-stopped
+    env_file:
+      - ./.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_SUPERUSER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_SUPERUSER_PASSWORD:-postgres}
+    ports:
+      - "${POSTGRES_PORT:-5432}:5432"
+    volumes:
+      # PostgreSQL 18+ 推荐挂载到 /var/lib/postgresql，避免旧 data 目录布局导致启动失败。
+      - postgres_data:/var/lib/postgresql
+      - ./postgresql/dev/postgresql.conf:/etc/postgresql/postgresql.conf:ro
+      - ./postgresql/dev/init-database.sh:/docker-entrypoint-initdb.d/init-database.sh:ro
+      - ./postgresql/init-schema.sql:/opt/genesis/bootstrap/init-schema.sql:ro
+    command: postgres -c config_file=/etc/postgresql/postgresql.conf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    # 默认使用原始 Docker Hub 镜像；网络受限时可通过环境变量切换到国内镜像。
+    image: ${REDIS_IMAGE:-redis:7-alpine}
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # 可选的分布式对象存储（SeaweedFS），通过 --profile object-storage 启用
+  seaweedfs:
+    # 默认使用原始 Docker Hub 镜像；网络受限时可通过环境变量切换到国内镜像。
+    image: ${SEAWEEDFS_IMAGE:-chrislusf/seaweedfs:latest}
+    restart: unless-stopped
+    profiles: ["object-storage"]
+    ports:
+      - "8301:9333"
+      - "8302:8080"
+      - "8303:8888"
+      - "8304:8333"
+    volumes:
+      - seaweedfs_data:/data
+      - ./seaweedfs/config/s3.json:/etc/seaweedfs/s3.json:ro
+      - ./seaweedfs/config/filer.toml:/etc/seaweedfs/filer.toml:ro
+    command: >
+      server
+      -dir=/data
+      -s3
+      -s3.config=/etc/seaweedfs/s3.json
+      -s3.port=8333
+      -filer
+      -volume.max=100
+      -master.volumeSizeLimitMB=1024
+
+volumes:
+  postgres_data:
+  redis_data:
+  backend_storage:
+  backend_uploads:
+  backend_logs:
+  seaweedfs_data:

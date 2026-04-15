@@ -1,0 +1,247 @@
+import { createFileRoute } from '@tanstack/react-router'
+import { useState } from 'react'
+import {
+  Plus,
+  Search,
+  MoreVertical,
+  Bot,
+  Play,
+  Settings,
+  Copy,
+  Trash2,
+  Calendar,
+  Activity,
+  CheckCircle2,
+} from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
+import { Badge } from '@/components/ui/badge'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs'
+import { CreateAgentDialog } from '@/components/agents/create-agent-dialog'
+
+export const Route = createFileRoute('/_top-nav/agents/index_back')({
+  component: AgentsPage,
+})
+
+function AgentsPage() {
+  const [activeTab, setActiveTab] = useState('all')
+  const [createDialogOpen, setCreateDialogOpen] = useState(false)
+
+  return (
+    <div className='w-full px-6 md:px-8 lg:px-12 xl:px-16 py-8 max-w-[1920px] mx-auto'>
+      {/* Header */}
+      <div className='mb-8'>
+        <h1 className='text-3xl font-bold tracking-tight mb-2'>AI 智能体</h1>
+        <p className='text-muted-foreground'>
+          管理和部署您的智能 RAG 助手，配置工作流程、测试智能体并监控运行状态。
+        </p>
+      </div>
+
+      {/* Toolbar */}
+      <div className='flex items-center justify-between gap-4 mb-6'>
+        <Tabs value={activeTab} onValueChange={setActiveTab} className='w-full'>
+          <div className='flex items-center justify-between'>
+            <TabsList>
+              <TabsTrigger value='all'>全部智能体</TabsTrigger>
+              <TabsTrigger value='active'>运行中</TabsTrigger>
+              <TabsTrigger value='draft'>草稿</TabsTrigger>
+            </TabsList>
+
+            <div className='flex items-center gap-4'>
+              {/* Search */}
+              <div className='relative w-[300px]'>
+                <Search className='absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground' />
+                <Input
+                  type='search'
+                  placeholder='搜索智能体...'
+                  className='pl-9'
+                />
+              </div>
+
+              {/* Create Button */}
+              <Button onClick={() => setCreateDialogOpen(true)}>
+                <Plus className='mr-2 h-4 w-4' />
+                新建智能体
+              </Button>
+            </div>
+          </div>
+
+          <TabsContent value={activeTab} className='mt-6'>
+            <div className='grid gap-4 md:grid-cols-2 lg:grid-cols-3'>
+              {/* Agent Cards */}
+              {agents.map((agent) => (
+                <Card key={agent.id} className='hover:shadow-md transition-all'>
+                  <CardHeader>
+                    <div className='flex items-start justify-between'>
+                      <div className={`flex h-12 w-12 items-center justify-center rounded-lg ${agent.iconBg} mb-3`}>
+                        <Bot className={`h-6 w-6 ${agent.iconColor}`} />
+                      </div>
+                      <div className='flex items-center gap-2'>
+                        <Badge
+                          variant={agent.status === 'Active' ? 'default' : 'secondary'}
+                          className='gap-1'
+                        >
+                          {agent.status === 'Active' && <Activity className='h-3 w-3' />}
+                          {agent.status === 'Active' ? '运行中' : '草稿'}
+                        </Badge>
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button variant='ghost' size='icon' className='h-8 w-8'>
+                              <MoreVertical className='h-4 w-4' />
+                            </Button>
+                          </DropdownMenuTrigger>
+                          <DropdownMenuContent align='end'>
+                            <DropdownMenuItem>
+                              <Settings className='mr-2 h-4 w-4' />
+                              配置
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Play className='mr-2 h-4 w-4' />
+                              测试智能体
+                            </DropdownMenuItem>
+                            <DropdownMenuItem>
+                              <Copy className='mr-2 h-4 w-4' />
+                              复制
+                            </DropdownMenuItem>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem className='text-destructive'>
+                              <Trash2 className='mr-2 h-4 w-4' />
+                              删除
+                            </DropdownMenuItem>
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
+                    </div>
+                    <CardTitle className='text-lg'>{agent.name}</CardTitle>
+                    <CardDescription className='line-clamp-2'>
+                      {agent.description}
+                    </CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    <div className='space-y-3'>
+                      {/* Knowledge Bases */}
+                      <div className='text-sm'>
+                        <div className='text-muted-foreground mb-1'>关联知识库</div>
+                        <div className='flex flex-wrap gap-1'>
+                          {agent.knowledgeBases.map((kb, index) => (
+                            <Badge key={index} variant='outline' className='text-xs'>
+                              {kb}
+                            </Badge>
+                          ))}
+                        </div>
+                      </div>
+
+                      {/* Stats */}
+                      <div className='flex items-center justify-between text-xs text-muted-foreground pt-2 border-t'>
+                        <div className='flex items-center gap-1'>
+                          <Calendar className='h-3 w-3' />
+                          <span>{agent.lastDeployed}</span>
+                        </div>
+                        <div className='flex items-center gap-1'>
+                          <CheckCircle2 className='h-3 w-3' />
+                          <span>{agent.queries} 次查询</span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className='flex gap-2 pt-2'>
+                        <Button variant='outline' size='sm' className='flex-1'>
+                          <Settings className='mr-2 h-3 w-3' />
+                          配置
+                        </Button>
+                        <Button size='sm' className='flex-1'>
+                          <Play className='mr-2 h-3 w-3' />
+                          测试
+                        </Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </TabsContent>
+        </Tabs>
+      </div>
+
+      {/* Create Agent Dialog */}
+      <CreateAgentDialog open={createDialogOpen} onOpenChange={setCreateDialogOpen} />
+    </div>
+  )
+}
+const agents = [
+  {
+    id: '1',
+    name: '财务分析专家',
+    description: '专注于第四季度财务分析和报告的智能助手，提供专业的财务数据解读。',
+    status: 'Active',
+    knowledgeBases: ['Q4 财务报告', '审计日志'],
+    lastDeployed: '2 小时前',
+    queries: '1.2k',
+    iconBg: 'bg-blue-500/10',
+    iconColor: 'text-blue-500',
+  },
+  {
+    id: '2',
+    name: '客户服务助手',
+    description: '为客户咨询和问题排查提供智能支持，快速响应用户需求。',
+    status: 'Active',
+    knowledgeBases: ['常见问题', '产品文档'],
+    lastDeployed: '1 天前',
+    queries: '8.5k',
+    iconBg: 'bg-green-500/10',
+    iconColor: 'text-green-500',
+  },
+  {
+    id: '3',
+    name: '工程技术顾问',
+    description: '为开发团队提供技术文档查询和问题解答，提升研发效率。',
+    status: 'Active',
+    knowledgeBases: ['工程知识库', 'API 文档'],
+    lastDeployed: '3 天前',
+    queries: '4.3k',
+    iconBg: 'bg-purple-500/10',
+    iconColor: 'text-purple-500',
+  },
+  {
+    id: '4',
+    name: '法律合规顾问',
+    description: '解答 GDPR、隐私政策和法规相关问题，确保业务合规运营。',
+    status: 'Draft',
+    knowledgeBases: ['法律合规文档'],
+    lastDeployed: '1 周前',
+    queries: '234',
+    iconBg: 'bg-orange-500/10',
+    iconColor: 'text-orange-500',
+  },
+  {
+    id: '5',
+    name: '科研实验助手',
+    description: '帮助研究人员快速访问实验数据和假设记录，加速科研进程。',
+    status: 'Draft',
+    knowledgeBases: ['研发实验笔记'],
+    lastDeployed: '未部署',
+    queries: '0',
+    iconBg: 'bg-pink-500/10',
+    iconColor: 'text-pink-500',
+  },
+  {
+    id: '6',
+    name: '营销文案生成器',
+    description: '生成符合品牌调性的营销内容和多种文案变体，提升营销效率。',
+    status: 'Active',
+    knowledgeBases: ['营销文案库', '品牌指南'],
+    lastDeployed: '5 天前',
+    queries: '2.1k',
+    iconBg: 'bg-yellow-500/10',
+    iconColor: 'text-yellow-500',
+  },
+]
+

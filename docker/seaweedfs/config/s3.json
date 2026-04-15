@@ -1,0 +1,43 @@
+{
+  "identities": [
+    {
+      "name": "admin",
+      "credentials": [
+        {
+          "accessKey": "GAI_AK_4VQOIH5HJZ1U",
+          "secretKey": "l90dyiB62TaQKH2uT8UIIfMPhtKmuepw1vF3xP5m"
+        }
+      ],
+      "actions": [
+        "Admin",
+        "Read",
+        "Write"
+      ]
+    },
+    {
+      "name": "readwrite",
+      "credentials": [
+        {
+          "accessKey": "GAI_AK_G6PMXBGGLZ6M",
+          "secretKey": "be5pC1LI5cohK26PMvmNzcBxTBaf85iMN4sdXABS"
+        }
+      ],
+      "actions": [
+        "Read",
+        "Write"
+      ]
+    },
+    {
+      "name": "readonly",
+      "credentials": [
+        {
+          "accessKey": "GAI_AK_KOHX1ZG40ZBD",
+          "secretKey": "eZhzYYwVGmq80oPRu1MjvfZQGotiCBuNxHIAS56y"
+        }
+      ],
+      "actions": [
+        "Read"
+      ]
+    }
+  ]
+}

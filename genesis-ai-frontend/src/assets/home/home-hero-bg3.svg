@@ -1,0 +1,68 @@
+<svg viewBox="0 0 900 240" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="D_fog" cx="18%" cy="55%" r="50%">
+    <stop offset="0%" stop-color="#F3F1FF" stop-opacity="1"></stop>
+    <stop offset="100%" stop-color="#F3F1FF" stop-opacity="0"></stop>
+  </radialGradient>
+  <radialGradient id="D_center" cx="72%" cy="48%" r="40%">
+    <stop offset="0%" stop-color="#DDD0FF" stop-opacity="0.85"></stop>
+    <stop offset="100%" stop-color="#F0EEFF" stop-opacity="0"></stop>
+  </radialGradient>
+  <radialGradient id="D_blue" cx="92%" cy="20%" r="35%">
+    <stop offset="0%" stop-color="#C8DEFF" stop-opacity="0.6"></stop>
+    <stop offset="100%" stop-color="#EEF2FF" stop-opacity="0"></stop>
+  </radialGradient>
+</defs>
+<rect width="900" height="240" fill="#F0EEFF"></rect>
+<rect width="900" height="240" fill="url(#D_center)"></rect>
+<rect width="900" height="240" fill="url(#D_blue)"></rect>
+<!-- knowledge graph edges -->
+<g stroke="#9A8ED8" stroke-width="0.7" fill="none" opacity="0.25">
+  <!-- core to mid -->
+  <line x1="720" y1="110" x2="620" y2="55"></line><line x1="720" y1="110" x2="640" y2="155"></line><line x1="720" y1="110" x2="670" y2="190"></line><line x1="720" y1="110" x2="800" y2="50"></line><line x1="720" y1="110" x2="820" y2="155"></line><line x1="720" y1="110" x2="780" y2="190"></line><line x1="720" y1="110" x2="850" y2="100"></line>
+  <!-- mid to leaf -->
+  <line x1="620" y1="55" x2="560" y2="25"></line><line x1="620" y1="55" x2="570" y2="80"></line>
+  <line x1="800" y1="50" x2="860" y2="20"></line><line x1="800" y1="50" x2="848" y2="58"></line>
+  <line x1="820" y1="155" x2="870" y2="170"></line><line x1="820" y1="155" x2="858" y2="138"></line>
+  <line x1="640" y1="155" x2="590" y2="170"></line><line x1="640" y1="155" x2="600" y2="140"></line>
+  <line x1="780" y1="190" x2="810" y2="215"></line><line x1="780" y1="190" x2="748" y2="218"></line>
+  <line x1="670" y1="190" x2="640" y2="215"></line><line x1="670" y1="190" x2="700" y2="222"></line>
+  <line x1="850" y1="100" x2="892" y2="88"></line><line x1="850" y1="100" x2="895" y2="115"></line>
+</g>
+<!-- leaf nodes -->
+<g fill="#E0D8FF" stroke="#9A8ED8" stroke-width="0.8" opacity="0.7">
+  <circle cx="560" cy="25" r="5"></circle><circle cx="570" cy="80" r="5"></circle>
+  <circle cx="860" cy="20" r="5"></circle><circle cx="848" cy="58" r="5"></circle>
+  <circle cx="870" cy="170" r="5"></circle><circle cx="858" cy="138" r="5"></circle>
+  <circle cx="590" cy="170" r="5"></circle><circle cx="600" cy="140" r="5"></circle>
+  <circle cx="810" cy="215" r="5"></circle><circle cx="748" cy="218" r="5"></circle>
+  <circle cx="640" cy="215" r="5"></circle><circle cx="700" cy="222" r="5"></circle>
+  <circle cx="892" cy="88" r="5"></circle><circle cx="895" cy="115" r="5"></circle>
+</g>
+<!-- mid nodes with labels -->
+<g>
+  <circle cx="620" cy="55" r="10" fill="#D0C8FF" stroke="#8A7ED8" stroke-width="1"></circle>
+  <text x="620" y="44" text-anchor="middle" font-size="8" fill="#7A6EC8">KB</text>
+  <circle cx="640" cy="155" r="10" fill="#C8D8FF" stroke="#7A9EE8" stroke-width="1"></circle>
+  <text x="640" y="144" text-anchor="middle" font-size="8" fill="#5A8AC8">DOC</text>
+  <circle cx="670" cy="190" r="10" fill="#C8E4FF" stroke="#7AACE8" stroke-width="1"></circle>
+  <text x="670" y="208" text-anchor="middle" font-size="8" fill="#5A8AC8">VEC</text>
+  <circle cx="800" cy="50" r="10" fill="#D8C8FF" stroke="#9A8ED8" stroke-width="1"></circle>
+  <text x="800" y="39" text-anchor="middle" font-size="8" fill="#6A5EC8">MODEL</text>
+  <circle cx="820" cy="155" r="10" fill="#D0E8FF" stroke="#7AAEE8" stroke-width="1"></circle>
+  <text x="820" y="144" text-anchor="middle" font-size="8" fill="#5A7AC8">INF</text>
+  <circle cx="780" cy="190" r="10" fill="#D4CCFF" stroke="#8A7ED8" stroke-width="1"></circle>
+  <text x="780" y="208" text-anchor="middle" font-size="8" fill="#6A5EC8">AGENT</text>
+  <circle cx="850" cy="100" r="10" fill="#CCE4FF" stroke="#7AAEE8" stroke-width="1"></circle>
+  <text x="850" y="89" text-anchor="middle" font-size="8" fill="#5A7AC8">API</text>
+</g>
+<!-- core node -->
+<circle cx="720" cy="110" r="22" fill="#D0C4FF" stroke="#8A7ED8" stroke-width="1.5" opacity="0.9"></circle>
+<circle cx="720" cy="110" r="14" fill="#BEB4F8" stroke="#7A6ED4" stroke-width="1"></circle>
+<circle cx="720" cy="110" r="6" fill="#8A7ED8" opacity="0.8"></circle>
+<text x="720" y="135" text-anchor="middle" font-size="9" fill="#6A5EC8" opacity="0.8">AI CORE</text>
+<!-- ripple rings -->
+<circle cx="720" cy="110" r="35" fill="none" stroke="#9A8ED8" stroke-width="0.5" opacity="0.2"></circle>
+<circle cx="720" cy="110" r="52" fill="none" stroke="#9A8ED8" stroke-width="0.4" opacity="0.12"></circle>
+<rect width="900" height="240" fill="url(#D_fog)"></rect>
+</svg>

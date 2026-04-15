@@ -1,0 +1,48 @@
+name: genesis-ai
+# 开发环境 - 单节点部署（最简配置）
+# 使用 weed server 命令一次性启动所有组件
+
+services:
+  # SeaweedFS 一体化服务（Master + Volume + Filer + S3）
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs
+    ports:
+      - "8301:9333"   # Master HTTP API
+      - "8302:8080"   # Volume HTTP API
+      - "8303:8888"   # Filer HTTP API
+      - "8304:8333"   # S3 API
+    volumes:
+      - ./data:/data
+      - ./config/s3.json:/etc/seaweedfs/s3.json
+      - ./config/filer.toml:/etc/seaweedfs/filer.toml
+    command: >
+      server
+      -dir=/data
+      -s3
+      -s3.config=/etc/seaweedfs/s3.json
+      -s3.port=8333
+      -filer
+      -volume.max=100
+      -master.volumeSizeLimitMB=1024
+    # 资源限制（可选，防止占用过多资源）
+    deploy:
+      resources:
+        limits:
+          memory: 512M      # 最大内存 512MB（开发环境足够）
+          cpus: '1.0'       # 最大 1 个 CPU 核心
+        reservations:
+          memory: 128M      # 预留内存 128MB
+          cpus: '0.25'      # 预留 0.25 个 CPU 核心
+    networks:
+      - seaweedfs-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9333/cluster/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+networks:
+  seaweedfs-network:
+    driver: bridge

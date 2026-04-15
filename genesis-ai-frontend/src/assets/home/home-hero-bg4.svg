@@ -1,0 +1,82 @@
+<svg viewBox="0 0 1400 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="v4_bg" cx="68%" cy="50%" r="58%">
+    <stop offset="0%" stop-color="#CCDEFF"/>
+    <stop offset="60%" stop-color="#DDE8FF"/>
+    <stop offset="100%" stop-color="#EAF0FF"/>
+  </radialGradient>
+  <radialGradient id="v4_purp" cx="85%" cy="85%" r="40%">
+    <stop offset="0%" stop-color="#D0C4FF" stop-opacity="0.5"/>
+    <stop offset="100%" stop-color="#EAF0FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="v4_fog" cx="13%" cy="52%" r="50%">
+    <stop offset="0%" stop-color="#EAF0FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#EAF0FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="v4_wave_fade" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#EAF0FF" stop-opacity="1"/>
+    <stop offset="40%" stop-color="#EAF0FF" stop-opacity="0"/>
+    <stop offset="100%" stop-color="#EAF0FF" stop-opacity="0"/>
+  </linearGradient>
+  <linearGradient id="v4_left_blend" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#E6EFFF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#E6EFFF" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="v4_glow"><feGaussianBlur stdDeviation="12"/></filter>
+</defs>
+<rect width="1400" height="260" fill="#E6EFFF"/>
+<g transform="translate(500 0)">
+<rect width="900" height="260" fill="#E6EFFF"/>
+<rect width="900" height="260" fill="url(#v4_bg)"/>
+<rect width="900" height="260" fill="url(#v4_purp)"/>
+
+<!-- flowing horizontal water sinusoid lines -->
+<g fill="none">
+  <path d="M460,25 Q510,15 560,25 Q610,35 660,25 Q710,15 760,25 Q810,35 860,25 Q885,20 900,23" stroke="#6AAEE8" stroke-width="0.7" opacity="0.25"/>
+  <path d="M460,45 Q520,32 580,45 Q640,58 700,45 Q760,32 820,45 Q865,54 900,47" stroke="#7AAEE0" stroke-width="0.8" opacity="0.28"/>
+  <path d="M460,68 Q530,52 600,68 Q670,84 740,68 Q800,55 870,68 Q888,73 900,65" stroke="#5A9ED8" stroke-width="0.9" opacity="0.22"/>
+  <path d="M460,95 Q540,78 620,95 Q700,112 770,95 Q840,78 900,95" stroke="#7AAEE0" stroke-width="0.7" opacity="0.2"/>
+  <path d="M460,128 Q550,108 640,128 Q730,148 810,128 Q865,114 900,128" stroke="#6AAEE8" stroke-width="1.0" opacity="0.18"/>
+  <path d="M460,162 Q550,148 640,162 Q730,176 810,162 Q865,152 900,162" stroke="#7AAEE0" stroke-width="0.7" opacity="0.2"/>
+  <path d="M460,192 Q530,178 600,192 Q670,206 740,192 Q810,178 880,192 Q893,195 900,190" stroke="#5A9ED8" stroke-width="0.9" opacity="0.22"/>
+  <path d="M460,218 Q520,208 580,218 Q640,228 700,218 Q760,208 820,218 Q865,225 900,217" stroke="#7AAEE0" stroke-width="0.8" opacity="0.25"/>
+  <path d="M460,238 Q510,230 560,238 Q610,246 660,238 Q720,228 780,238 Q840,246 900,238" stroke="#6AAEE8" stroke-width="0.7" opacity="0.22"/>
+  <!-- purple tint waves -->
+  <path d="M460,108 Q545,94 630,108 Q715,122 790,108 Q850,97 900,108" stroke="#9A8EE0" stroke-width="0.6" opacity="0.15"/>
+  <path d="M460,148 Q545,136 630,148 Q715,160 790,148 Q850,140 900,150" stroke="#9A8EE0" stroke-width="0.6" opacity="0.12"/>
+</g>
+
+<!-- wave fade overlay (left side) -->
+<rect x="460" y="0" width="160" height="260" fill="url(#v4_wave_fade)"/>
+
+<!-- glow halo -->
+<circle cx="700" cy="130" r="95" fill="#A8C8FF" opacity="0.2" filter="url(#v4_glow)"/>
+
+<!-- logo circles -->
+<circle cx="700" cy="130" r="66" fill="#D8EEFF" opacity="0.93"/>
+<circle cx="700" cy="130" r="54" fill="#A8D0F8" opacity="0.95"/>
+<circle cx="700" cy="130" r="41" fill="#6AAEE8" opacity="0.95"/>
+<circle cx="700" cy="130" r="29" fill="#2E7DD8" opacity="0.95"/>
+<circle cx="700" cy="130" r="18" fill="#0A50B8" opacity="0.95"/>
+<circle cx="700" cy="130" r="7" fill="#082E80" opacity="0.95"/>
+<path d="M 654,84 A 66,66 0 0,1 746,84" fill="none" stroke="#EAF4FF" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+<text x="700" y="145" text-anchor="middle" font-family="Georgia,serif" font-size="52" font-weight="400" fill="#FFFFFF" opacity="0.95">G</text>
+
+<!-- Genesis wordmark below circle -->
+<text x="700" y="212" text-anchor="middle" font-family="Georgia,serif" font-size="13" font-weight="400" fill="#1A5AB8" opacity="0.5" letter-spacing="2">Genesis AI</text>
+<line x1="638" y1="218" x2="662" y2="218" stroke="#1A5AB8" stroke-width="0.5" opacity="0.25"/>
+<line x1="738" y1="218" x2="762" y2="218" stroke="#1A5AB8" stroke-width="0.5" opacity="0.25"/>
+
+<!-- small accent stars -->
+<g fill="#8AAEE0" opacity="0.35">
+  <circle cx="570" cy="38" r="2"/><circle cx="840" cy="55" r="2"/><circle cx="880" cy="180" r="2.5"/>
+  <circle cx="500" cy="195" r="1.5"/>
+</g>
+<g fill="#B0A0E8" opacity="0.3">
+  <circle cx="860" cy="220" r="2.5"/><circle cx="520" cy="90" r="1.5"/>
+</g>
+
+<rect width="900" height="260" fill="url(#v4_fog)"/>
+</g>
+<rect x="460" y="0" width="120" height="260" fill="url(#v4_left_blend)"/>
+</svg>

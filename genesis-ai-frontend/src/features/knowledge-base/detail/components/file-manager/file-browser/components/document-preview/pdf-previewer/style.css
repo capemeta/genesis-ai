@@ -1,0 +1,107 @@
+/* PDF Previewer Custom Styles */
+.pdf-previewer-container {
+  font-family: var(--font-inter), sans-serif;
+}
+
+/* 覆盖底层 react-pdf-highlighter 的默认样式以符合 Genesis AI 设计 */
+.PdfHighlighter {
+  background-color: transparent !important;
+}
+
+.PdfHighlighter__tip-container {
+  z-index: 50 !important;
+}
+
+/* 高亮块的基础样式优化 */
+.Highlight__part {
+  background-color: rgba(255, 226, 0, 0.28) !important;
+  border-bottom: 2px solid rgba(255, 193, 7, 0.58);
+  transition: background-color 0.2s ease, border-color 0.2s ease;
+  cursor: pointer;
+  border-radius: 2px;
+}
+
+.Highlight__part--scrolledTo {
+  background-color: rgba(255, 193, 7, 0.42) !important;
+  border-bottom-color: rgba(255, 152, 0, 0.95);
+  box-shadow: 0 0 8px rgba(255, 152, 0, 0.18);
+}
+
+/* 选区高亮样式 */
+.AreaHighlight {
+  border: 2px solid #ffc107 !important;
+  background-color: transparent !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-radius: 2px;
+}
+
+.AreaHighlight--scrolledTo {
+  border-color: #ff9800 !important;
+  background-color: transparent !important;
+  box-shadow: 0 0 15px rgba(255, 152, 0, 0.5);
+}
+
+/* 隐藏侧边的默认滚动条，使用系统滚动条 */
+.PdfHighlighter__pdfviewer {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.2) transparent;
+}
+
+.dark .PdfHighlighter__pdfviewer {
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+
+/* 页码浮窗样式 */
+.pdf-pagination-indicator {
+  position: absolute;
+  top: 1rem;
+  right: 1.5rem;
+  background-color: rgba(15, 23, 42, 0.8);
+  backdrop-filter: blur(8px);
+  color: #f8fafc;
+  padding: 0.4rem 0.8rem;
+  border-radius: 99px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.025em;
+  z-index: 40;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+  pointer-events: none;
+  transition: opacity 0.3s ease;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.pdf-pagination-indicator .current-page {
+  color: #38bdf8;
+}
+
+.pdf-pagination-indicator .total-pages {
+  opacity: 0.6;
+}
+
+/* 页面间隔美化 */
+.PdfHighlighter .page {
+  margin-bottom: 2rem !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.08) !important;
+  border-radius: 4px !important;
+  position: relative;
+}
+
+.dark .PdfHighlighter .page {
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.45) !important;
+  border: 1px solid rgba(255, 255, 255, 0.03);
+}
+
+/* 强制在每一页前显示虚幻的页码标识 */
+.PdfHighlighter .page::before {
+  content: attr(data-page-number);
+  position: absolute;
+  top: -1.5rem;
+  left: 0;
+  font-size: 0.7rem;
+  color: #94a3b8;
+  font-weight: 500;
+}

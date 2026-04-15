@@ -1,0 +1,32 @@
+name: genesis-ai
+
+services:
+  postgres:
+    image: pgvector/pgvector:pg18-trixie
+    container_name: genesis-ai-db-prod
+    restart: always
+    env_file: .env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      # POSTGRES_DB 不设置，通过 init-database.sql 手动创建以控制编码
+    ports:
+      - "${DB_PORT:-5432}:5432"
+    volumes:
+      # 数据持久化到父目录（容器删除后数据仍保留）
+      - ../pgdata-prod:/var/lib/postgresql
+      - ./postgresql.conf:/etc/postgresql/postgresql.conf
+      - ./init-database.sql:/docker-entrypoint-initdb.d/init-database.sql
+      - ../init-schema.sql:/opt/genesis/bootstrap/init-schema.sql:ro
+    # 使用生产环境配置文件启动
+    command: postgres -c 'config_file=/etc/postgresql/postgresql.conf'
+    shm_size: ${SHM_SIZE:-1gb}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# 注意：数据已通过相对路径映射到 ../pgdata-prod 目录
+# 即使容器被删除（docker-compose down），数据仍然保留在宿主机
+# 如需完全清理数据，需手动删除 pgdata-prod 目录

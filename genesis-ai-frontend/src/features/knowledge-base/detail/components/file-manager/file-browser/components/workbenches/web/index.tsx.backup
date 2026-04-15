@@ -1,0 +1,2162 @@
+import { useEffect, useMemo, useState } from 'react'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import {
+  AlertCircle,
+  Check,
+  CheckCircle2,
+  Copy,
+  ChevronsUpDown,
+  Clock3,
+  Edit2,
+  ExternalLink,
+  Globe,
+  History,
+  Loader2,
+  MoreVertical,
+  Plus,
+  RefreshCw,
+  Search,
+  Trash2,
+  Webhook,
+} from 'lucide-react'
+import { toast } from 'sonner'
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog'
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuSeparator, DropdownMenuTrigger } from '@/components/ui/dropdown-menu'
+import { Input } from '@/components/ui/input'
+import { Label } from '@/components/ui/label'
+import {
+  Command,
+  CommandEmpty,
+  CommandGroup,
+  CommandInput,
+  CommandItem,
+  CommandList,
+  CommandSeparator,
+} from '@/components/ui/command'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { Switch } from '@/components/ui/switch'
+import { FileBrowser } from '@/features/knowledge-base/detail/components/file-manager'
+import ScheduleRuleBuilder, {
+  type ScheduleFormState,
+  type ScheduleType,
+} from '@/features/knowledge-base/detail/components/file-manager/file-browser/components/shared/schedule-rule-builder'
+import { FolderMountField } from '@/features/knowledge-base/detail/components/file-manager/file-browser/components/workbenches/shared/folder-mount-field'
+import { detachDocumentsFromKB, fetchKnowledgeBase } from '@/lib/api/knowledge-base'
+import { fetchFolderPath } from '@/lib/api/folder'
+import { cn } from '@/lib/utils'
+import {
+  createWebPage,
+  deleteWebSchedule,
+  createWebSchedule,
+  latestCheckWebPage,
+  listAllWebPages,
+  listWebPages,
+  previewWebPageExtract,
+  listWebSchedules,
+  listWebSyncRuns,
+  triggerWebSyncNow,
+  updateWebPage,
+  updateWebSchedule,
+  type WebPageItem,
+  type WebPageConfig,
+  type WebScheduleCreateRequest,
+  type WebScheduleItem,
+  type WebPagePreviewResponse,
+} from '@/lib/api/web-sync'
+
+export type WebWorkbenchView = 'files' | 'web-pages' | 'web-runs' | 'web-sites'
+type RunStatusFilter = 'all' | 'queued' | 'running' | 'success' | 'failed'
+
+type FetchMode = 'auto' | 'static' | 'browser'
+
+interface WebChunkingDraft {
+  max_embed_tokens: number
+}
+
+interface WebSyncWorkbenchProps {
+  kbId: string
+  view: WebWorkbenchView
+  selectedFolderId: string | null
+  onFolderChange: (folderId: string | null) => void
+  isFolderTreeCollapsed?: boolean
+  onToggleFolderTree?: () => void
+  onSetFolderTreeCollapsed?: (collapsed: boolean) => void
+}
+
+function formatTime(dateString?: string | null): string {
+  if (!dateString) return '-'
+  const value = new Date(dateString)
+  if (Number.isNaN(value.getTime())) return '-'
+  return value.toLocaleString('zh-CN', {
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+/**
+ * 将绝对时间点按指定时区拆分为 YYYY-MM-DD / HH:MM。
+ * 这里固定按中国时区格式化，避免 once 规则混用 UTC 日期和本地时间导致跨天偏移。
+ */
+function formatDateTimeForTimezone(
+  date: Date,
+  timezone: string
+): { runDate: string; runTime: string } {
+  const parts = new Intl.DateTimeFormat('zh-CN', {
+    timeZone: timezone,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  }).formatToParts(date)
+
+  const getPart = (type: Intl.DateTimeFormatPartTypes) => parts.find(part => part.type === type)?.value || ''
+
+  return {
+    runDate: `${getPart('year')}-${getPart('month')}-${getPart('day')}`,
+    runTime: `${getPart('hour')}:${getPart('minute')}`,
+  }
+}
+
+function formatWebPageSyncStatus(status?: string | null): string {
+  const labelMap: Record<string, string> = {
+    // idle 统一文案为"待同步"，与文件列表中 parse_status=pending 的展示一致
+    idle: '待同步',
+    queued: '排队中',
+    syncing: '同步中',
+    success: '同步成功',
+    partial_success: '部分成功',
+    failed: '同步失败',
+  }
+  return labelMap[String(status || '').toLowerCase()] || String(status || '-')
+}
+
+/** 返回 sync_status 对应的 Badge className，与文件列表状态色系保持一致 */
+function getWebPageSyncStatusClass(status?: string | null): string {
+  const classMap: Record<string, string> = {
+    // idle = 待同步，用橙色传递"有事要做"的提示感
+    idle:           'bg-orange-50 text-orange-600 border-none shadow-none hover:bg-orange-50',
+    queued:         'bg-yellow-100 text-yellow-700 border-none shadow-none hover:bg-yellow-100',
+    syncing:        'bg-blue-50 text-blue-700 border-none shadow-none hover:bg-blue-50',
+    success:        'bg-green-100 text-green-700 border-none shadow-none hover:bg-green-100',
+    partial_success:'bg-orange-100 text-orange-700 border-none shadow-none hover:bg-orange-100',
+    failed:         'bg-red-100 text-red-700 border-none shadow-none hover:bg-red-100',
+  }
+  return classMap[String(status || '').toLowerCase()] || 'bg-slate-100 text-slate-600 border-none shadow-none'
+}
+
+function formatRunStatus(status?: string | null): string {
+  const labelMap: Record<string, string> = {
+    queued: '排队中',
+    running: '执行中',
+    success: '成功',
+    failed: '失败',
+  }
+  return labelMap[String(status || '').toLowerCase()] || String(status || '-')
+}
+
+function formatFetchMode(fetchMode?: string | null): string {
+  const labelMap: Record<string, string> = {
+    auto: '自动回退',
+    static: '仅静态',
+    browser: '浏览器',
+  }
+  return labelMap[String(fetchMode || '').toLowerCase()] || '自动回退'
+}
+
+function validateCssSelectorSyntax(selector?: string | null): string | null {
+  const value = String(selector || '').trim()
+  if (!value) return null
+  try {
+    const fragment = document.createDocumentFragment()
+    fragment.querySelector(value)
+    return null
+  } catch {
+    return 'CSS 选择器语法不合法，请检查括号、引号或层级写法'
+  }
+}
+
+function getWebPageConfigDraft(config?: WebPageConfig | null): {
+  timeoutSeconds: number
+  contentSelector: string
+  chunking: WebChunkingDraft
+} {
+  const chunking = config?.chunking_config || {}
+  return {
+    timeoutSeconds: Number(config?.timeout_seconds || 20),
+    contentSelector: String(config?.content_selector || ''),
+    chunking: {
+      max_embed_tokens: Number(chunking.max_embed_tokens || 512),
+    },
+  }
+}
+
+function buildWebPageConfigPayload(timeoutSeconds: number, contentSelector: string, chunking: WebChunkingDraft): WebPageConfig {
+  const normalizedSelector = contentSelector.trim()
+  return {
+    timeout_seconds: Math.max(5, Number(timeoutSeconds || 20)),
+    content_selector: normalizedSelector || undefined,
+    chunking_config: {
+      max_embed_tokens: Math.max(128, Number(chunking.max_embed_tokens || 512)),
+    },
+  }
+}
+
+function fromSchedule(schedule?: WebScheduleItem): ScheduleFormState {
+  if (!schedule) {
+    return {
+      scheduleType: 'manual',
+      intervalValue: 30,
+      intervalUnit: 'minute',
+      runTime: '02:00',
+      cronExpr: '0 2 * * *',
+      isEnabled: true,
+      intervalOnce: false,
+    }
+  }
+  // 兼容后端的 once 类型：interval 模式下通过 intervalOnce 字段控制
+  const isOnce = schedule.schedule_type === 'once'
+  return {
+    scheduleType: isOnce ? 'interval' : (schedule.schedule_type as ScheduleType) || 'manual',
+    intervalValue: schedule.interval_value || 30,
+    intervalUnit: schedule.interval_unit || 'minute',
+    runTime: schedule.run_time ? schedule.run_time.slice(0, 5) : '02:00',
+    cronExpr: schedule.cron_expr || '0 2 * * *',
+    isEnabled: schedule.is_enabled,
+    intervalOnce: isOnce,
+  }
+}
+
+/**
+ * 判断页面级规则是否与知识库默认规则一致
+ * 用于在保存时决定是删除页面级规则还是保存覆盖
+ */
+function isScheduleFormSameAsKbDefault(form: ScheduleFormState, kbSchedule?: WebScheduleItem): boolean {
+  const kbDefault = fromSchedule(kbSchedule)
+
+  // 比较关键字段
+  if (form.scheduleType !== kbDefault.scheduleType) return false
+  if (form.isEnabled !== kbDefault.isEnabled) return false
+
+  if (form.scheduleType === 'interval') {
+    if (form.intervalValue !== kbDefault.intervalValue) return false
+    if (form.intervalUnit !== kbDefault.intervalUnit) return false
+    if (form.intervalOnce !== kbDefault.intervalOnce) return false
+  }
+
+  if (form.scheduleType === 'daily') {
+    if (form.runTime !== kbDefault.runTime) return false
+  }
+
+  if (form.scheduleType === 'cron') {
+    if (form.cronExpr !== kbDefault.cronExpr) return false
+  }
+
+  return true
+}
+
+function buildSchedulePayload(
+  base: { kb_id: string; kb_web_page_id?: string | null; scope_level: 'kb_default' | 'page_override' },
+  form: ScheduleFormState
+): WebScheduleCreateRequest {
+  const scheduleTimezone = 'Asia/Shanghai'
+  // intervalOnce 时使用后端的 once 类型
+  const effectiveType = form.intervalOnce ? 'once' : form.scheduleType
+  const payload: WebScheduleCreateRequest = {
+    ...base,
+    schedule_type: effectiveType,
+    timezone: scheduleTimezone,
+    is_enabled: form.isEnabled,
+  }
+  if (form.scheduleType === 'interval') {
+    payload.interval_value = form.intervalValue
+    payload.interval_unit = form.intervalUnit
+
+    // 延迟执行一次时，计算 run_date（当前时间 + 延迟时间）
+    if (form.intervalOnce) {
+      const now = new Date()
+      const intervalMs = form.intervalValue * (
+        form.intervalUnit === 'hour' ? 3600 * 1000 :
+        form.intervalUnit === 'day' ? 86400 * 1000 :
+        60 * 1000
+      )
+      const runDate = new Date(now.getTime() + intervalMs)
+      const formatted = formatDateTimeForTimezone(runDate, scheduleTimezone)
+      payload.run_date = formatted.runDate
+      payload.run_time = formatted.runTime
+    }
+  }
+  if (form.scheduleType === 'daily') {
+    payload.run_time = `${form.runTime || '02:00'}:00`
+  }
+  if (form.scheduleType === 'cron') {
+    payload.cron_expr = form.cronExpr.trim()
+  }
+  return payload
+}
+
+export function WebSyncWorkbench({
+  kbId,
+  view,
+  selectedFolderId,
+  onFolderChange,
+  isFolderTreeCollapsed,
+  onToggleFolderTree,
+  onSetFolderTreeCollapsed,
+}: WebSyncWorkbenchProps) {
+  const queryClient = useQueryClient()
+  const [addDialogOpen, setAddDialogOpen] = useState(false)
+  const [url, setUrl] = useState('')
+  const [displayName, setDisplayName] = useState('')
+  const [createFolderId, setCreateFolderId] = useState<string | null>(selectedFolderId)
+  const [createFetchMode, setCreateFetchMode] = useState<FetchMode>('auto')
+  const [createTimeoutSeconds, setCreateTimeoutSeconds] = useState(20)
+  const [createContentSelector, setCreateContentSelector] = useState('')
+  const [createChunking, setCreateChunking] = useState<WebChunkingDraft>({
+    max_embed_tokens: 512,
+  })
+  const [selectedPageId, setSelectedPageId] = useState<string>('')
+  const [pageSearchKeyword, setPageSearchKeyword] = useState('')
+  const [pageListPage, setPageListPage] = useState(1)
+  const [includeSubfolders, setIncludeSubfolders] = useState(true)
+  const [runStatusFilter, setRunStatusFilter] = useState<RunStatusFilter>('all')
+  const [kbScheduleForm, setKbScheduleForm] = useState<ScheduleFormState>(fromSchedule())
+  const [pageScheduleForm, setPageScheduleForm] = useState<ScheduleFormState>(fromSchedule())
+  const [editingPage, setEditingPage] = useState<WebPageItem | null>(null)
+  const [editDisplayName, setEditDisplayName] = useState('')
+  const [editFolderId, setEditFolderId] = useState<string | null>(null)
+  const [editFetchMode, setEditFetchMode] = useState<FetchMode>('auto')
+  const [editTimeoutSeconds, setEditTimeoutSeconds] = useState(20)
+  const [editContentSelector, setEditContentSelector] = useState('')
+  const [editChunking, setEditChunking] = useState<WebChunkingDraft>({
+    max_embed_tokens: 512,
+  })
+  const [deletingPage, setDeletingPage] = useState<WebPageItem | null>(null)
+  /** 页面级规则是否已恢复到继承默认规则状态（仅影响界面显示，保存时才真正处理） */
+  const [scheduleFormRestoredToDefault, setScheduleFormRestoredToDefault] = useState(false)
+    // 立即同步确认弹窗状态
+    const [syncNowConfirmOpen, setSyncNowConfirmOpen] = useState(false)
+  /** 同步记录列表：仅人工点击「查询」重新拉取时展示加载态（避免定时轮询导致按钮/遮罩一直闪） */
+  const [isManualRefreshRuns, setIsManualRefreshRuns] = useState(false)
+  /** 同步记录：可搜索页面选择面板（Popover+Command，替代长列表 Select） */
+  const [runsPagePickerOpen, setRunsPagePickerOpen] = useState(false)
+  /** 同步记录：当前页码 */
+  const [runsPage, setRunsPage] = useState(1)
+  /** 最近同步记录展开状态 */
+  const [recentRunsExpanded, setRecentRunsExpanded] = useState(false)
+  /** 最近同步记录弹窗中的页码 */
+  const [dialogRunsPage, setDialogRunsPage] = useState(1)
+  /** 抽取预览弹窗 */
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false)
+  const [previewSelector, setPreviewSelector] = useState('')
+  const [previewFetchMode, setPreviewFetchMode] = useState<FetchMode>('auto')
+  const [previewTimeoutSeconds, setPreviewTimeoutSeconds] = useState(20)
+  const [previewResult, setPreviewResult] = useState<WebPagePreviewResponse | null>(null)
+  const [previewTab, setPreviewTab] = useState<'text' | 'html' | 'render'>('text')
+
+  const { data: kbConfig } = useQuery({
+    queryKey: ['knowledge-base', kbId, 'web-site-config'],
+    queryFn: () => fetchKnowledgeBase(kbId),
+    enabled: view === 'web-sites',
+    staleTime: 10_000,
+  })
+
+  const { data: allPagesData = [] } = useQuery({
+    queryKey: ['kb-web-pages-all', kbId],
+    queryFn: () => listAllWebPages({ kb_id: kbId, include_subfolders: true }),
+    staleTime: 10_000,
+    enabled: view !== 'files',
+  })
+  const {
+    data: scopedAllPagesData = [],
+  } = useQuery({
+    queryKey: ['kb-web-pages-all', kbId, selectedFolderId, includeSubfolders, 'scoped'],
+    queryFn: () =>
+      listAllWebPages({
+        kb_id: kbId,
+        folder_id: selectedFolderId,
+        include_subfolders: includeSubfolders,
+      }),
+    staleTime: 10_000,
+    enabled: view === 'web-pages',
+  })
+  const {
+    data: pagedPagesData,
+    isLoading: isLoadingPagedPages,
+    isFetching: isFetchingPagedPages,
+  } = useQuery({
+    queryKey: ['kb-web-pages-panel', kbId, selectedFolderId, includeSubfolders, pageSearchKeyword, pageListPage],
+    queryFn: () =>
+      listWebPages({
+        kb_id: kbId,
+        page: pageListPage,
+        page_size: 20,
+        search: pageSearchKeyword.trim() || undefined,
+        folder_id: selectedFolderId,
+        include_subfolders: includeSubfolders,
+      }),
+    staleTime: 5_000,
+    enabled: view === 'web-pages',
+  })
+  const isRefetchingPagedPages = isFetchingPagedPages && !isLoadingPagedPages
+
+  const { data: schedules = [] } = useQuery({
+    queryKey: ['kb-web-schedules', kbId],
+    queryFn: () => listWebSchedules({ kb_id: kbId }),
+    staleTime: 5_000,
+    enabled: view !== 'files',
+  })
+
+  const { data: runsData, isLoading: isLoadingRuns, refetch: refetchRuns } = useQuery({
+    queryKey: ['kb-web-sync-runs', kbId, selectedPageId, runStatusFilter, runsPage],
+    queryFn: () =>
+      listWebSyncRuns({
+        kb_id: kbId,
+        page: runsPage,
+        page_size: 20,
+        kb_web_page_id: selectedPageId || undefined,
+        status: runStatusFilter === 'all' ? undefined : runStatusFilter,
+      }),
+    staleTime: 3_000,
+    enabled: view === 'web-runs',
+    refetchInterval: query => {
+      const hasActive = (query.state.data?.items || []).some(item => item.status === 'queued' || item.status === 'running')
+      return hasActive ? 3000 : false
+    },
+  })
+  const {
+    data: selectedPageRunsData,
+    isLoading: isLoadingSelectedPageRuns,
+    refetch: refetchSelectedPageRuns,
+  } = useQuery({
+    queryKey: ['kb-web-page-runs', kbId, selectedPageId, dialogRunsPage],
+    queryFn: () =>
+      listWebSyncRuns({
+        kb_id: kbId,
+        page: dialogRunsPage,
+        page_size: 10,
+        kb_web_page_id: selectedPageId || undefined,
+      }),
+    staleTime: 3_000,
+    enabled: view === 'web-pages' && Boolean(selectedPageId),
+    refetchInterval: query => {
+      const hasActive = (query.state.data?.items || []).some(item => item.status === 'queued' || item.status === 'running')
+      return hasActive ? 3000 : false
+    },
+  })
+
+  const pageOptions = useMemo(() => allPagesData || [], [allPagesData])
+  const scopedPageOptions = useMemo(() => scopedAllPagesData || [], [scopedAllPagesData])
+  const pagedPageOptions = useMemo(() => pagedPagesData?.items || [], [pagedPagesData?.items])
+  const selectedPage = useMemo(
+    () =>
+      pagedPageOptions.find(item => item.kb_web_page_id === selectedPageId) ||
+      scopedPageOptions.find(item => item.kb_web_page_id === selectedPageId) ||
+      pageOptions.find(item => item.kb_web_page_id === selectedPageId),
+    [pagedPageOptions, scopedPageOptions, pageOptions, selectedPageId]
+  )
+  const selectedPageConfigDraft = useMemo(
+    () => getWebPageConfigDraft(selectedPage?.page_config),
+    [selectedPage?.page_config]
+  )
+  // 获取所选页面的目录路径
+  const { data: selectedPageFolderPath = [] } = useQuery({
+    queryKey: ['folder-path', selectedPage?.folder_id],
+    queryFn: () => fetchFolderPath(selectedPage!.folder_id!),
+    enabled: Boolean(selectedPage?.folder_id),
+    staleTime: 30_000,
+  })
+  const selectedPageFolderName = useMemo(() => {
+    if (!selectedPage?.folder_id) return '根目录'
+    if (selectedPageFolderPath.length === 0) return '已挂载'
+    return selectedPageFolderPath.map(folder => folder.name).join(' / ')
+  }, [selectedPage?.folder_id, selectedPageFolderPath])
+  const kbDefaultSchedule = useMemo(
+    () => schedules.find(item => item.scope_level === 'kb_default'),
+    [schedules]
+  )
+  const selectedPageSchedule = useMemo(
+    () => schedules.find(item => item.scope_level === 'page_override' && item.kb_web_page_id === selectedPageId),
+    [schedules, selectedPageId]
+  )
+  const stats = useMemo(() => {
+    const list = allPagesData || []
+    return {
+      total: list.length,
+      running: list.filter(item => item.sync_status === 'syncing').length,
+      failed: list.filter(item => item.sync_status === 'failed').length,
+      outdated: list.filter(item => item.last_check_status === 'outdated').length,
+    }
+  }, [allPagesData])
+
+  const refreshAllQueries = async () => {
+    await Promise.all([
+      queryClient.invalidateQueries({ queryKey: ['kb-web-pages', kbId] }),
+      queryClient.invalidateQueries({ queryKey: ['kb-web-pages-all', kbId] }),
+      queryClient.invalidateQueries({ queryKey: ['kb-web-pages-panel', kbId] }),
+      queryClient.invalidateQueries({ queryKey: ['kb-web-schedules', kbId] }),
+      queryClient.invalidateQueries({ queryKey: ['kb-web-sync-runs', kbId] }),
+      queryClient.invalidateQueries({ queryKey: ['kb-documents', kbId], exact: false }),
+      queryClient.invalidateQueries({ queryKey: ['knowledge-base', kbId] }),
+    ])
+  }
+
+  const createPageMutation = useMutation({
+    mutationFn: createWebPage,
+    onSuccess: async data => {
+      toast.success('URL 已添加')
+      setAddDialogOpen(false)
+      setUrl('')
+      setDisplayName('')
+      setCreateFolderId(selectedFolderId)
+      setCreateFetchMode('auto')
+      setCreateTimeoutSeconds(20)
+      setCreateContentSelector('')
+      setCreateChunking({ max_embed_tokens: 512 })
+      setPageSearchKeyword('')
+      setPageListPage(1)
+      setSelectedPageId(data.kb_web_page_id)
+      await refreshAllQueries()
+    },
+  })
+
+  const updatePageMutation = useMutation({
+    // URL 不再支持编辑（改 URL 应删除重建，保持历史记录语义干净）
+    mutationFn: async (payload: {
+      kb_web_page_id: string
+      display_name?: string
+      folder_id?: string
+      fetch_mode?: FetchMode
+      page_config?: WebPageConfig
+    }) => {
+      return updateWebPage({
+        kb_web_page_id: payload.kb_web_page_id,
+        display_name: payload.display_name,
+        folder_id: payload.folder_id,
+        fetch_mode: payload.fetch_mode,
+        page_config: payload.page_config,
+      })
+    },
+    onSuccess: async () => {
+      toast.success('页面信息已更新')
+      setEditingPage(null)
+      setEditDisplayName('')
+      setEditFolderId(null)
+      setEditFetchMode('auto')
+      setEditTimeoutSeconds(20)
+      setEditContentSelector('')
+      setEditChunking({ max_embed_tokens: 512 })
+      await refreshAllQueries()
+    },
+  })
+
+  const deletePageMutation = useMutation({
+    mutationFn: async (pageItem: WebPageItem) => detachDocumentsFromKB(kbId, pageItem.kb_doc_id),
+    onSuccess: async (_result, pageItem) => {
+      toast.success('网页页面已删除')
+      if (selectedPageId === pageItem.kb_web_page_id) {
+        setSelectedPageId('')
+      }
+      await refreshAllQueries()
+    },
+  })
+
+  const saveScheduleMutation = useMutation({
+    mutationFn: async (params: { scheduleId?: string; payload: WebScheduleCreateRequest }) => {
+      if (params.scheduleId) {
+        return updateWebSchedule({
+          schedule_id: params.scheduleId,
+          ...params.payload,
+        })
+      }
+      return createWebSchedule(params.payload)
+    },
+    onSuccess: async () => {
+      toast.success('定时规则已保存')
+      // 保存成功后重置恢复状态，让界面根据新的 selectedPageSchedule 重新渲染
+      setScheduleFormRestoredToDefault(false)
+      await refreshAllQueries()
+    },
+  })
+
+  const deleteScheduleMutation = useMutation({
+    mutationFn: deleteWebSchedule,
+    onSuccess: async () => {
+      toast.success('已恢复继承默认规则')
+      // 删除页面级独立规则后，重置恢复状态
+      setScheduleFormRestoredToDefault(false)
+      await refreshAllQueries()
+    },
+  })
+
+  const latestCheckMutation = useMutation({
+    mutationFn: latestCheckWebPage,
+    onSuccess: async result => {
+      toast.success(result.message)
+      await refreshAllQueries()
+    },
+  })
+
+  const previewExtractMutation = useMutation({
+    mutationFn: previewWebPageExtract,
+    onSuccess: result => {
+      setPreviewResult(result)
+      setPreviewTab('text')
+      setPreviewDialogOpen(true)
+    },
+  })
+
+  const syncNowMutation = useMutation({
+    mutationFn: triggerWebSyncNow,
+    onSuccess: async () => {
+      toast.success('已触发同步任务')
+      await refreshAllQueries()
+      refetchRuns()
+      refetchSelectedPageRuns()
+    },
+  })
+
+  const handleCreateUrl = () => {
+    if (!url.trim()) {
+      toast.error('请输入 URL')
+      return
+    }
+    const selectorError = validateCssSelectorSyntax(createContentSelector)
+    if (selectorError) {
+      toast.error(selectorError)
+      return
+    }
+    createPageMutation.mutate({
+      kb_id: kbId,
+      url: url.trim(),
+      folder_id: createFolderId,
+      display_name: displayName.trim() || undefined,
+      trigger_sync_now: false,
+      fetch_mode: createFetchMode,
+      page_config: buildWebPageConfigPayload(createTimeoutSeconds, createContentSelector, createChunking),
+    })
+  }
+
+  const handleCopyPageUrl = async (pageUrl?: string | null) => {
+    if (!pageUrl) {
+      toast.error('当前页面没有可复制的 URL')
+      return
+    }
+    try {
+      await navigator.clipboard.writeText(pageUrl)
+      toast.success('URL 已复制')
+    } catch {
+      toast.error('复制失败，请手动复制')
+    }
+  }
+
+  const handleOpenPageUrlInNewTab = (pageUrl?: string | null) => {
+    if (!pageUrl) {
+      toast.error('当前页面没有可打开的 URL')
+      return
+    }
+    window.open(pageUrl, '_blank', 'noopener,noreferrer')
+  }
+
+  useEffect(() => {
+    if (view !== 'web-pages') {
+      return
+    }
+    setPageListPage(1)
+  }, [selectedFolderId, includeSubfolders, view])
+
+  useEffect(() => {
+    if (!addDialogOpen) {
+      return
+    }
+    setCreateFolderId(selectedFolderId)
+  }, [addDialogOpen, selectedFolderId])
+
+  useEffect(() => {
+    if (view !== 'web-pages') {
+      return
+    }
+    if (!selectedPageId) {
+      if (pagedPageOptions.length > 0) {
+        setSelectedPageId(pagedPageOptions[0].kb_web_page_id)
+      }
+      return
+    }
+    // 只要任意一个数据源包含当前 selectedPageId，就保持选中状态不变。
+    // 避免因 pagedPageOptions / scopedPageOptions 异步刷新时序差异，
+    // 导致其中一个还未包含当前页就误判为「不存在」而强制跳选第一个页面。
+    const existsInPaged = pagedPageOptions.some(item => item.kb_web_page_id === selectedPageId)
+    const existsInScoped = scopedPageOptions.some(item => item.kb_web_page_id === selectedPageId)
+    if (!existsInPaged && !existsInScoped) {
+      setSelectedPageId(pagedPageOptions[0]?.kb_web_page_id || '')
+    }
+  }, [view, selectedPageId, scopedPageOptions, pagedPageOptions])
+
+  useEffect(() => {
+    // 有独立规则时展示独立规则，否则降级展示知识库默认规则
+    setPageScheduleForm(fromSchedule(selectedPageSchedule ?? kbDefaultSchedule))
+  }, [selectedPageSchedule, kbDefaultSchedule])
+
+  useEffect(() => {
+    // 知识库默认调度规则加载完成后同步到表单（进入站点视图时从服务端拉取）
+    setKbScheduleForm(fromSchedule(kbDefaultSchedule))
+  }, [kbDefaultSchedule])
+
+  useEffect(() => {
+    if (!selectedPage) return
+    const draft = getWebPageConfigDraft(selectedPage.page_config)
+    setPreviewSelector(draft.contentSelector)
+    setPreviewFetchMode((selectedPage.fetch_mode || 'auto') as FetchMode)
+    setPreviewTimeoutSeconds(draft.timeoutSeconds)
+  }, [selectedPage])
+
+  // 筛选条件变化时重置同步记录页码
+  useEffect(() => {
+    if (view === 'web-runs') {
+      setRunsPage(1)
+    }
+  }, [view, selectedPageId, runStatusFilter])
+
+  // 弹窗打开时重置页码
+  useEffect(() => {
+    if (recentRunsExpanded) {
+      setDialogRunsPage(1)
+    }
+  }, [recentRunsExpanded, selectedPageId])
+
+  const handlePageSelect = (pageId: string) => {
+    setSelectedPageId(pageId)
+    // 切换页面时重置恢复状态
+    setScheduleFormRestoredToDefault(false)
+    const schedule = schedules.find(item => item.scope_level === 'page_override' && item.kb_web_page_id === pageId)
+    // 有独立规则时展示独立规则，否则降级展示知识库默认规则
+    setPageScheduleForm(fromSchedule(schedule ?? kbDefaultSchedule))
+  }
+
+  const handleOpenEditDialog = (pageItem: WebPageItem) => {
+    setEditingPage(pageItem)
+    setEditDisplayName(pageItem.name || '')
+    // 初始化挂载目录为页面当前所在目录
+    setEditFolderId(pageItem.folder_id ?? null)
+    setEditFetchMode((pageItem.fetch_mode || 'auto') as FetchMode)
+    const configDraft = getWebPageConfigDraft(pageItem.page_config)
+    setEditTimeoutSeconds(configDraft.timeoutSeconds)
+    setEditContentSelector(configDraft.contentSelector)
+    setEditChunking(configDraft.chunking)
+  }
+
+  if (view === 'files') {
+    return (
+      <FileBrowser
+        kbId={kbId}
+        kbType='web'
+        selectedFolderId={selectedFolderId}
+        onFolderChange={onFolderChange}
+        isFolderTreeCollapsed={isFolderTreeCollapsed}
+        onToggleFolderTree={onToggleFolderTree}
+        onSetFolderTreeCollapsed={onSetFolderTreeCollapsed}
+      />
+    )
+  }
+
+  const webRetrievalConfig = (kbConfig?.retrieval_config as any)?.web || {}
+  const effectiveCrawlDepth = Number(webRetrievalConfig.crawl_depth || 1)
+
+  if (view === 'web-pages') {
+    const totalPages = Math.max(1, Math.ceil((pagedPagesData?.total || 0) / 20))
+    return (
+      <div className='flex h-full min-h-0 bg-gradient-to-br from-slate-50 to-blue-50/30'>
+        <aside className='flex w-80 flex-col border-r border-slate-200 bg-white/80 backdrop-blur-sm'>
+          <div className='border-b border-slate-200 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 p-3'>
+            <div className='mb-2 flex items-center gap-2'>
+              <div className='rounded-lg bg-blue-500/10 p-1.5'>
+                <Globe className='h-4 w-4 text-blue-600' />
+              </div>
+              <h2 className='text-sm font-semibold text-slate-800'>网页页面</h2>
+            </div>
+            <div className='relative'>
+              <Search className='pointer-events-none absolute left-2.5 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-slate-400' />
+              <Input
+                placeholder='搜索名称、URL、域名'
+                value={pageSearchKeyword}
+                onChange={e => {
+                  setPageSearchKeyword(e.target.value)
+                  setPageListPage(1)
+                }}
+                className='h-8 border-slate-200 bg-white pl-8 text-sm placeholder:text-slate-400 focus-visible:ring-blue-500'
+              />
+            </div>
+          </div>
+          <div className='border-b border-slate-200 p-3'>
+            <div className='grid grid-cols-2 gap-2'>
+              <Button
+                variant='outline'
+                size='sm'
+                className='w-full'
+                disabled={isFetchingPagedPages}
+                onClick={() => queryClient.invalidateQueries({ queryKey: ['kb-web-pages-panel', kbId] })}
+              >
+                <RefreshCw className={cn('mr-2 h-3.5 w-3.5', isFetchingPagedPages && 'animate-spin')} />
+                {isFetchingPagedPages ? '刷新中…' : '刷新列表'}
+              </Button>
+              <Button size='sm' className='bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200' onClick={() => setAddDialogOpen(true)}>
+                <Plus className='mr-1.5 h-3.5 w-3.5' />
+                新增页面
+              </Button>
+            </div>
+            <div className='mt-3 flex items-center gap-2 rounded-md border border-slate-200 bg-white px-3 py-2'>
+              <Switch checked={includeSubfolders} onCheckedChange={setIncludeSubfolders} />
+              <span className='text-xs text-slate-600'>包含子文件夹</span>
+            </div>
+          </div>
+          <div className='relative min-h-0 flex-1 overflow-y-auto p-3'>
+            <div className='space-y-3'>
+              {isLoadingPagedPages ? (
+                <div className='flex items-center justify-center py-12 text-sm text-slate-500'>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin text-blue-500' />
+                  正在加载页面...
+                </div>
+              ) : pagedPageOptions.length === 0 ? (
+                <div className='rounded-xl border border-dashed border-slate-300 bg-white/80 p-4 text-sm text-slate-500'>暂无页面，请先新增 URL。</div>
+              ) : (
+                pagedPageOptions.map(item => {
+                  const isActive = item.kb_web_page_id === selectedPageId
+                  return (
+                    <div
+                      key={item.kb_web_page_id}
+                      onClick={() => handlePageSelect(item.kb_web_page_id)}
+                      onKeyDown={event => {
+                        if (event.key === 'Enter' || event.key === ' ') {
+                          event.preventDefault()
+                          handlePageSelect(item.kb_web_page_id)
+                        }
+                      }}
+                      role='button'
+                      tabIndex={0}
+                      className={`w-full rounded-xl border p-3 text-left transition ${
+                        isActive
+                          ? 'border-blue-300 bg-blue-50/70 shadow-sm ring-1 ring-blue-200'
+                          : 'border-slate-200 bg-white hover:border-blue-200 hover:bg-blue-50/30'
+                      }`}
+                    >
+                      <div className='flex items-start justify-between gap-2'>
+                        <div className='min-w-0'>
+                          <p className='truncate text-sm font-medium text-slate-800'>{item.name}</p>
+                          <div className='mt-1 flex items-center gap-1'>
+                            <p className='min-w-0 flex-1 truncate text-xs text-slate-500'>{item.url}</p>
+                            <button
+                              type='button'
+                              className='inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700'
+                              title='复制 URL'
+                              aria-label='复制 URL'
+                              onClick={event => {
+                                event.stopPropagation()
+                                void handleCopyPageUrl(item.url)
+                              }}
+                            >
+                              <Copy className='h-3.5 w-3.5' />
+                            </button>
+                            <button
+                              type='button'
+                              className='inline-flex h-5 w-5 shrink-0 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700'
+                              title='新标签页打开'
+                              aria-label='新标签页打开'
+                              onClick={event => {
+                                event.stopPropagation()
+                                handleOpenPageUrlInNewTab(item.url)
+                              }}
+                            >
+                              <ExternalLink className='h-3.5 w-3.5' />
+                            </button>
+                          </div>
+                          <p className='mt-1 text-xs text-slate-500'>最近同步：{formatTime(item.last_synced_at)}</p>
+                        </div>
+                        <div className='flex items-start gap-1'>
+                          <Badge className={getWebPageSyncStatusClass(item.sync_status)}>{formatWebPageSyncStatus(item.sync_status)}</Badge>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <span
+                                className='inline-flex h-6 w-6 cursor-pointer items-center justify-center rounded-md border border-slate-200 bg-white text-slate-500 hover:bg-slate-50'
+                                onClick={event => event.stopPropagation()}
+                              >
+                                <MoreVertical className='h-3.5 w-3.5' />
+                              </span>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align='start' sideOffset={4} avoidCollisions className='min-w-[160px]' onClick={event => event.stopPropagation()}>
+                              {/* 立即同步 */}
+                              <DropdownMenuItem
+                                onClick={event => {
+                                  event.stopPropagation()
+                                  // 打开确认弹窗（复用右侧面板的 syncNowConfirmOpen state）
+                                  if (item.kb_web_page_id === selectedPageId) {
+                                    setSyncNowConfirmOpen(true)
+                                  } else {
+                                    // 如果当前选中的不是这个页面，先选中它再弹窗
+                                    handlePageSelect(item.kb_web_page_id)
+                                    setTimeout(() => setSyncNowConfirmOpen(true), 50)
+                                  }
+                                }}
+                              >
+                                <RefreshCw className='mr-2 h-4 w-4' />
+                                立即同步
+                              </DropdownMenuItem>
+                              {/* 校验最新 */}
+                              <DropdownMenuItem
+                                onClick={event => {
+                                  event.stopPropagation()
+                                  latestCheckMutation.mutate({ kb_web_page_id: item.kb_web_page_id })
+                                }}
+                              >
+                                <Webhook className='mr-2 h-4 w-4' />
+                                校验最新
+                              </DropdownMenuItem>
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={event => {
+                                  event.stopPropagation()
+                                  handleOpenEditDialog(item)
+                                }}
+                              >
+                                <Edit2 className='mr-2 h-4 w-4' />
+                                编辑页面
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                variant='destructive'
+                                onClick={event => {
+                                  event.stopPropagation()
+                                  setDeletingPage(item)
+                                }}
+                              >
+                                <Trash2 className='mr-2 h-4 w-4' />
+                                删除页面
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </div>
+                      </div>
+                    </div>
+                  )
+                })
+              )}
+            </div>
+            {isRefetchingPagedPages ? (
+              <div
+                className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/55 backdrop-blur-[1px]'
+                aria-busy
+                aria-label='正在刷新列表'
+              >
+                <div className='flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-4 py-3 shadow-sm'>
+                  <Loader2 className='h-5 w-5 animate-spin text-blue-500' />
+                  <span className='text-xs text-slate-600'>正在刷新列表…</span>
+                </div>
+              </div>
+            ) : null}
+          </div>
+          <div className='border-t border-slate-200 p-3'>
+            <div className='mb-2 text-xs text-slate-500'>
+              共 {pagedPagesData?.total || 0} 条，第 {pageListPage} / {totalPages} 页
+            </div>
+            <div className='grid grid-cols-2 gap-2'>
+              <Button variant='outline' size='sm' disabled={pageListPage <= 1} onClick={() => setPageListPage(prev => Math.max(1, prev - 1))}>
+                上一页
+              </Button>
+              <Button variant='outline' size='sm' disabled={pageListPage >= totalPages} onClick={() => setPageListPage(prev => Math.min(totalPages, prev + 1))}>
+                下一页
+              </Button>
+            </div>
+          </div>
+        </aside>
+        <main className='min-w-0 flex-1 p-4'>
+          <Card className='flex h-full min-h-0 flex-col overflow-hidden border-slate-200 bg-white/95 shadow-sm'>
+            <CardHeader className='border-b border-slate-200 bg-gradient-to-r from-blue-50/50 to-cyan-50/50 p-4'>
+              <div className='flex flex-wrap items-center justify-between gap-3'>
+                <div className='min-w-0 flex-1'>
+                  <CardTitle className='text-base text-slate-800'>{selectedPage ? selectedPage.name : '页面详情与调度'}</CardTitle>
+                  <div className='mt-1 flex items-center gap-1.5'>
+                    <p className='min-w-0 flex-1 truncate text-xs text-slate-500'>
+                      {selectedPage ? selectedPage.url : '请选择左侧页面后进行调度配置与手动操作'}
+                    </p>
+                    {selectedPage ? (
+                      <>
+                        <button
+                          type='button'
+                          className='inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700'
+                          title='复制 URL'
+                          aria-label='复制 URL'
+                          onClick={() => void handleCopyPageUrl(selectedPage.url)}
+                        >
+                          <Copy className='h-3.5 w-3.5' />
+                        </button>
+                        <button
+                          type='button'
+                          className='inline-flex h-5 w-5 items-center justify-center rounded text-slate-400 transition hover:bg-slate-100 hover:text-slate-700'
+                          title='新标签页打开'
+                          aria-label='新标签页打开'
+                          onClick={() => handleOpenPageUrlInNewTab(selectedPage.url)}
+                        >
+                          <ExternalLink className='h-3.5 w-3.5' />
+                        </button>
+                      </>
+                    ) : null}
+                  </div>
+                  {/* 状态字段区域 */}
+                  {selectedPage && (
+                    <div className='mt-2 space-y-1.5 text-xs'>
+                      <div className='flex flex-wrap items-center gap-x-4 gap-y-1.5'>
+                        <span className='flex items-center gap-1'>
+                          状态：<Badge className={getWebPageSyncStatusClass(selectedPage.sync_status)}>{formatWebPageSyncStatus(selectedPage.sync_status)}</Badge>
+                          {/* 同步记录弹窗触发按钮 */}
+                          <button
+                            type='button'
+                            className='inline-flex items-center justify-center rounded-md p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600 transition'
+                            onClick={() => setRecentRunsExpanded(true)}
+                            title='查看最近同步记录'
+                          >
+                            <History className='h-3.5 w-3.5' />
+                            {(selectedPageRunsData?.items || []).length > 0 && (
+                              <span className='absolute -mt-1 ml-0.5 inline-flex h-2 w-2'>
+                                <span className='absolute inline-flex h-full w-full animate-ping rounded-full bg-blue-400 opacity-75'></span>
+                                <span className='relative inline-flex h-2 w-2 rounded-full bg-blue-500 opacity-90'></span>
+                              </span>
+                            )}
+                          </button>
+                        </span>
+                        <span className='text-slate-600'>最近同步：{formatTime(selectedPage.last_synced_at)}</span>
+                        <span className='text-slate-600'>挂载目录：{selectedPageFolderName}</span>
+                        <span className='text-slate-600'>新增时间：{formatTime(selectedPage.created_at)}</span>
+                      </div>
+                      <div className='flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500'>
+                        <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5'>抓取：{formatFetchMode(selectedPage.fetch_mode)}</span>
+                        <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5'>超时：{selectedPageConfigDraft.timeoutSeconds}s</span>
+                        <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5'>分块上限：{selectedPageConfigDraft.chunking.max_embed_tokens}</span>
+                        {selectedPageConfigDraft.contentSelector ? (
+                          <span
+                            className='max-w-full truncate rounded-full border border-sky-200 bg-sky-50 px-2 py-0.5 text-sky-700'
+                            title={selectedPageConfigDraft.contentSelector}
+                          >
+                            Selector：{selectedPageConfigDraft.contentSelector}
+                          </span>
+                        ) : (
+                          <span className='rounded-full border border-slate-200 bg-white px-2 py-0.5'>Selector：未指定</span>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </div>
+                <div className='flex items-center gap-2'>
+                  <Button
+                    size='sm'
+                    variant='outline'
+                    className='border-sky-200 bg-white text-sky-700 hover:bg-sky-50'
+                    disabled={!selectedPageId || previewExtractMutation.isPending}
+                    onClick={() => {
+                      if (!selectedPageId) return
+                      const selectorError = validateCssSelectorSyntax(previewSelector)
+                      if (selectorError) {
+                        toast.error(selectorError)
+                        return
+                      }
+                      previewExtractMutation.mutate({
+                        kb_web_page_id: selectedPageId,
+                        fetch_mode: previewFetchMode,
+                        timeout_seconds: Math.max(5, Number(previewTimeoutSeconds || 20)),
+                        content_selector: previewSelector.trim() || undefined,
+                        include_raw_html: true,
+                      })
+                    }}
+                  >
+                    {previewExtractMutation.isPending ? (
+                      <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
+                    ) : (
+                      <Search className='mr-1.5 h-3.5 w-3.5' />
+                    )}
+                    抽取预览
+                  </Button>
+                  <Button
+                    size='sm'
+                    className='bg-orange-500 hover:bg-orange-600 shadow-sm shadow-orange-200 text-white'
+                    disabled={!selectedPageId || latestCheckMutation.isPending}
+                    onClick={() => latestCheckMutation.mutate({ kb_web_page_id: selectedPageId })}
+                  >
+                    {latestCheckMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : <Webhook className='mr-1.5 h-3.5 w-3.5' />}
+                    校验最新
+                  </Button>
+                  <Button
+                    size='sm'
+                    className='bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200'
+                    disabled={!selectedPageId || syncNowMutation.isPending}
+                    onClick={() => setSyncNowConfirmOpen(true)}
+                  >
+                    {syncNowMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : <RefreshCw className='mr-1.5 h-3.5 w-3.5' />}
+                    立即同步
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+
+            <CardContent className='min-h-0 flex-1 overflow-auto p-4'>
+              {!selectedPage ? (
+                <div className='flex h-full flex-col items-center justify-center gap-3 rounded-xl border border-dashed border-slate-300 bg-white/90 text-sm text-slate-500'>
+                  <Globe className='h-8 w-8 text-slate-400' />
+                  <div>请先在左侧选择一个页面</div>
+                </div>
+              ) : (
+                <div className='space-y-4'>
+                {/* 同步失败时展示错误详情块 */}
+                {selectedPage.sync_status === 'failed' && selectedPage.last_error && (
+                    <div className='rounded-xl border border-red-200 bg-red-50 px-4 py-3'>
+                      <div className='mb-1.5 flex items-center gap-1.5 text-xs font-semibold text-red-700'>
+                        <AlertCircle className='h-3.5 w-3.5' />
+                        同步错误
+                      </div>
+                      <p className='whitespace-pre-wrap break-all text-xs text-red-600'>{selectedPage.last_error}</p>
+                    </div>
+                  )}
+
+                  <ScheduleRuleBuilder
+                    title='页面级定时覆盖'
+                    description={
+                      scheduleFormRestoredToDefault
+                        ? '当前页面正在继承知识库默认规则；如需单独控制，可在这里保存页面级规则。'
+                        : selectedPageSchedule
+                          ? '当前页面已启用独立规则，保存后继续覆盖知识库默认规则。'
+                          : '当前页面正在继承知识库默认规则；如需单独控制，可在这里保存页面级规则。'
+                    }
+                    form={pageScheduleForm}
+                    onChange={setPageScheduleForm}
+                    // 恢复后显示知识库默认规则的信息，否则显示页面级规则
+                    nextTriggerAt={scheduleFormRestoredToDefault ? kbDefaultSchedule?.next_trigger_at : selectedPageSchedule?.next_trigger_at}
+                    savedScheduleType={scheduleFormRestoredToDefault ? kbDefaultSchedule?.schedule_type as any : (selectedPageSchedule?.schedule_type as any || undefined)}
+                    saveLabel='保存页面规则'
+                    saveDisabled={!selectedPageId || saveScheduleMutation.isPending}
+                    isSaving={saveScheduleMutation.isPending}
+                    secondaryActionLabel={selectedPageSchedule ? '恢复继承默认规则' : undefined}
+                    secondaryActionDisabled={!selectedPageSchedule || deleteScheduleMutation.isPending}
+                    onSecondaryAction={() => {
+                      // 仅重置表单为知识库默认规则，实际删除在保存时处理（保持与保存行为一致）
+                      setPageScheduleForm(fromSchedule(kbDefaultSchedule))
+                      setScheduleFormRestoredToDefault(true)
+                    }}
+                    onSave={() => {
+                      if (!selectedPageId) {
+                        toast.error('请先选择页面')
+                        return
+                      }
+
+                      // 检查表单是否与知识库默认规则一致
+                      const isSameAsKbDefault = isScheduleFormSameAsKbDefault(pageScheduleForm, kbDefaultSchedule)
+
+                      // 如果与默认规则一致，且存在页面级规则，则删除页面级规则
+                      if (isSameAsKbDefault && selectedPageSchedule?.schedule_id) {
+                        deleteScheduleMutation.mutate({ schedule_id: selectedPageSchedule.schedule_id })
+                        return
+                      }
+
+                      // 如果与默认规则一致，且没有页面级规则，则无需任何操作
+                      if (isSameAsKbDefault && !selectedPageSchedule?.schedule_id) {
+                        toast.info('当前规则与知识库默认规则一致，无需保存')
+                        return
+                      }
+
+                      // 否则保存页面级规则
+                      saveScheduleMutation.mutate({
+                        scheduleId: selectedPageSchedule?.schedule_id,
+                        payload: buildSchedulePayload(
+                          {
+                            kb_id: kbId,
+                            kb_web_page_id: selectedPageId,
+                            scope_level: 'page_override',
+                          },
+                          pageScheduleForm
+                        ),
+                      })
+                    }}
+                  />
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </main>
+        <Dialog
+          open={addDialogOpen}
+          onOpenChange={open => {
+            setAddDialogOpen(open)
+            if (!open) {
+              setUrl('')
+              setDisplayName('')
+              setCreateFolderId(selectedFolderId)
+              setCreateFetchMode('auto')
+              setCreateTimeoutSeconds(20)
+              setCreateContentSelector('')
+              setCreateChunking({ max_embed_tokens: 512 })
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>新增网页页面</DialogTitle>
+              <DialogDescription>新增页面时默认挂到当前目录，你也可以改挂到其他文件夹。</DialogDescription>
+            </DialogHeader>
+            <div className='space-y-4'>
+              <FolderMountField
+                kbId={kbId}
+                value={createFolderId}
+                onChange={setCreateFolderId}
+                description='如果当前正在某个文件夹下浏览，这里会默认选中该文件夹。'
+              />
+              <div className='space-y-2'>
+                <Label className='text-xs text-slate-600'>页面 URL</Label>
+                <Input
+                  placeholder='https://docs.example.com/guide'
+                  value={url}
+                  onChange={e => setUrl(e.target.value)}
+                />
+              </div>
+              <div className='space-y-2'>
+                <Label className='text-xs text-slate-600'>显示名称</Label>
+                <Input
+                  placeholder='显示名称（可选）'
+                  value={displayName}
+                  onChange={e => setDisplayName(e.target.value)}
+                />
+              </div>
+              <div className='rounded-xl border border-slate-200 bg-slate-50/70 p-3'>
+                <div className='mb-3'>
+                  <h4 className='text-sm font-medium text-slate-800'>高级抓取与分块设置</h4>
+                  <p className='mt-1 text-xs text-slate-500'>网页会先按标题和独立元素分区；真正参与检索的叶子块只受 max_embed_tokens 与模型安全上限共同约束。</p>
+                </div>
+                <div className='grid gap-3 md:grid-cols-2'>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>抓取模式</Label>
+                    <Select value={createFetchMode} onValueChange={value => setCreateFetchMode(value as FetchMode)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='auto'>自动回退</SelectItem>
+                        <SelectItem value='static'>仅静态 HTML</SelectItem>
+                        <SelectItem value='browser'>优先浏览器渲染</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>抓取超时（秒）</Label>
+                    <Input type='number' min={5} max={120} value={createTimeoutSeconds} onChange={e => setCreateTimeoutSeconds(Number(e.target.value || 20))} />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>CSS 选择器（可选）</Label>
+                    <Input
+                      placeholder='例如：main, .article-content, #content'
+                      value={createContentSelector}
+                      onChange={e => setCreateContentSelector(e.target.value)}
+                    />
+                  </div>
+                  <div className='space-y-2 md:col-span-2'>
+                    <Label className='text-xs text-slate-600'>最大分块大小（max_embed_tokens）</Label>
+                    <Input
+                      type='number'
+                      min={128}
+                      max={8192}
+                      value={createChunking.max_embed_tokens}
+                      onChange={e => setCreateChunking(prev => ({ ...prev, max_embed_tokens: Number(e.target.value || 512) }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant='outline'
+                onClick={() => {
+                  setAddDialogOpen(false)
+                  setUrl('')
+                  setDisplayName('')
+                  setCreateFolderId(selectedFolderId)
+                  setCreateFetchMode('auto')
+                  setCreateTimeoutSeconds(20)
+                  setCreateContentSelector('')
+                  setCreateChunking({ max_embed_tokens: 512 })
+                }}
+              >
+                取消
+              </Button>
+              <Button className='bg-blue-600 hover:bg-blue-700 shadow-sm shadow-blue-200' disabled={createPageMutation.isPending} onClick={handleCreateUrl}>
+                {createPageMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : <Plus className='mr-1.5 h-3.5 w-3.5' />}
+                新增页面
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <Dialog
+          open={Boolean(editingPage)}
+          onOpenChange={open => {
+            if (!open) {
+              setEditingPage(null)
+              setEditDisplayName('')
+              setEditFolderId(null)
+              setEditFetchMode('auto')
+              setEditTimeoutSeconds(20)
+              setEditContentSelector('')
+              setEditChunking({ max_embed_tokens: 512 })
+            }
+          }}
+        >
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>编辑网页页面</DialogTitle>
+              <DialogDescription>
+                支持修改标题和挂载目录。如需更换 URL，请删除后重新添加。
+              </DialogDescription>
+            </DialogHeader>
+            <div className='space-y-3'>
+              <FolderMountField
+                kbId={kbId}
+                value={editFolderId}
+                onChange={setEditFolderId}
+                label='挂载目录'
+                description='可将该页面移动到其他文件夹，实时生效。'
+              />
+              <div>
+                <Label className='mb-1.5 block text-xs text-slate-600'>页面标题</Label>
+                <Input value={editDisplayName} onChange={event => setEditDisplayName(event.target.value)} placeholder='请输入页面标题' />
+              </div>
+              <div>
+                <Label className='mb-1.5 block text-xs text-slate-600'>页面 URL</Label>
+                <div className='flex h-10 items-center rounded-md border border-slate-200 bg-slate-50 px-3 text-sm text-slate-400 select-all'>
+                  {editingPage?.url}
+                </div>
+                <p className='mt-1 text-[11px] text-slate-400'>URL 不可编辑，如需更换请删除后重新添加。</p>
+              </div>
+              <div className='rounded-xl border border-slate-200 bg-slate-50/70 p-3'>
+                <div className='mb-3'>
+                  <h4 className='text-sm font-medium text-slate-800'>高级抓取与分块设置</h4>
+                  <p className='mt-1 text-xs text-slate-500'>这里的设置只作用于当前页面；真正生效的检索叶子块大小会自动收口到 min(模型安全上限, max_embed_tokens)。</p>
+                </div>
+                <div className='grid gap-3 md:grid-cols-2'>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>抓取模式</Label>
+                    <Select value={editFetchMode} onValueChange={value => setEditFetchMode(value as FetchMode)}>
+                      <SelectTrigger>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value='auto'>自动回退</SelectItem>
+                        <SelectItem value='static'>仅静态 HTML</SelectItem>
+                        <SelectItem value='browser'>优先浏览器渲染</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>抓取超时（秒）</Label>
+                    <Input type='number' min={5} max={120} value={editTimeoutSeconds} onChange={e => setEditTimeoutSeconds(Number(e.target.value || 20))} />
+                  </div>
+                  <div className='space-y-2'>
+                    <Label className='text-xs text-slate-600'>CSS 选择器（可选）</Label>
+                    <Input
+                      placeholder='例如：main, .article-content, #content'
+                      value={editContentSelector}
+                      onChange={e => setEditContentSelector(e.target.value)}
+                    />
+                  </div>
+                  <div className='space-y-2 md:col-span-2'>
+                    <Label className='text-xs text-slate-600'>最大分块大小（max_embed_tokens）</Label>
+                    <Input
+                      type='number'
+                      min={128}
+                      max={8192}
+                      value={editChunking.max_embed_tokens}
+                      onChange={e => setEditChunking(prev => ({ ...prev, max_embed_tokens: Number(e.target.value || 512) }))}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+            <DialogFooter>
+              <Button
+                variant='outline'
+                onClick={() => {
+                  setEditingPage(null)
+                  setEditDisplayName('')
+                  setEditFolderId(null)
+                  setEditFetchMode('auto')
+                  setEditTimeoutSeconds(20)
+                  setEditContentSelector('')
+                  setEditChunking({ max_embed_tokens: 512 })
+                }}
+              >
+                取消
+              </Button>
+              <Button
+                disabled={!editingPage || updatePageMutation.isPending}
+                onClick={() => {
+                  if (!editingPage) return
+                  const selectorError = validateCssSelectorSyntax(editContentSelector)
+                  if (selectorError) {
+                    toast.error(selectorError)
+                    return
+                  }
+                  updatePageMutation.mutate({
+                    kb_web_page_id: editingPage.kb_web_page_id,
+                    display_name: editDisplayName.trim(),
+                    // 挂载目录：只有当前值与初始化值不同时才传递，避免不必要的更新
+                    folder_id: editFolderId !== (editingPage.folder_id ?? null)
+                      ? (editFolderId === null ? '__root__' : editFolderId)
+                      : undefined,
+                    fetch_mode: editFetchMode,
+                    page_config: buildWebPageConfigPayload(editTimeoutSeconds, editContentSelector, editChunking),
+                  })
+                }}
+              >
+                {updatePageMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : null}
+                保存修改
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
+        <AlertDialog open={Boolean(deletingPage)} onOpenChange={open => !open && setDeletingPage(null)}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认删除网页页面？</AlertDialogTitle>
+              <AlertDialogDescription>
+                删除后将移除该页面在当前知识库中的关联数据（含同步记录与分块结果），且不可恢复。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel disabled={deletePageMutation.isPending}>取消</AlertDialogCancel>
+              <AlertDialogAction
+                disabled={!deletingPage || deletePageMutation.isPending}
+                onClick={event => {
+                  event.preventDefault()
+                  if (!deletingPage) return
+                  deletePageMutation.mutate(deletingPage, {
+                    onSettled: () => setDeletingPage(null),
+                  })
+                }}
+              >
+                {deletePageMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : null}
+                删除
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 立即同步确认弹窗 */}
+        <AlertDialog open={syncNowConfirmOpen} onOpenChange={setSyncNowConfirmOpen}>
+          <AlertDialogContent>
+            <AlertDialogHeader>
+              <AlertDialogTitle>确认立即同步？</AlertDialogTitle>
+              <AlertDialogDescription>
+                将立即抓取「{selectedPage?.name}」的最新网页内容并重建切片索引，该操作会覆盖已有数据。请确认是否继续。
+              </AlertDialogDescription>
+            </AlertDialogHeader>
+            <AlertDialogFooter>
+              <AlertDialogCancel>取消</AlertDialogCancel>
+              <AlertDialogAction
+                onClick={() => {
+                  if (selectedPageId) {
+                    syncNowMutation.mutate({ kb_web_page_id: selectedPageId })
+                  }
+                  setSyncNowConfirmOpen(false)
+                }}
+              >
+                确认同步
+              </AlertDialogAction>
+            </AlertDialogFooter>
+          </AlertDialogContent>
+        </AlertDialog>
+
+        {/* 抽取预览弹窗 */}
+        <Dialog
+          open={previewDialogOpen}
+          onOpenChange={open => {
+            setPreviewDialogOpen(open)
+            if (!open) {
+              setPreviewTab('text')
+            }
+          }}
+        >
+          <DialogContent className='max-w-5xl max-h-[86vh] overflow-hidden flex flex-col'>
+            <DialogHeader>
+              <DialogTitle>网页抽取预览</DialogTitle>
+              <DialogDescription>
+                可直接预览当前页面在指定抓取模式和选择器下的抽取效果。渲染预览为参考视图，建议以提取文本和 HTML 代码为准。
+              </DialogDescription>
+            </DialogHeader>
+            <div className='grid gap-3 rounded-lg border border-slate-200 bg-slate-50/70 p-3 md:grid-cols-4'>
+              <div className='space-y-1.5 md:col-span-2'>
+                <Label className='text-xs text-slate-600'>CSS 选择器（可选）</Label>
+                <Input
+                  placeholder='例如：main, .article-content, #content'
+                  value={previewSelector}
+                  onChange={event => setPreviewSelector(event.target.value)}
+                />
+              </div>
+              <div className='space-y-1.5'>
+                <Label className='text-xs text-slate-600'>抓取模式</Label>
+                <Select value={previewFetchMode} onValueChange={value => setPreviewFetchMode(value as FetchMode)}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value='auto'>自动回退</SelectItem>
+                    <SelectItem value='static'>仅静态 HTML</SelectItem>
+                    <SelectItem value='browser'>优先浏览器渲染</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className='space-y-1.5'>
+                <Label className='text-xs text-slate-600'>超时（秒）</Label>
+                <Input
+                  type='number'
+                  min={5}
+                  max={120}
+                  value={previewTimeoutSeconds}
+                  onChange={event => setPreviewTimeoutSeconds(Number(event.target.value || 20))}
+                />
+              </div>
+              <div className='md:col-span-4 flex items-center justify-between'>
+                <div className='text-xs text-slate-500'>
+                  {previewResult ? (
+                    <>
+                      extractor: {previewResult.extractor} · HTTP: {previewResult.http_status ?? '—'} · selector命中: {previewResult.selector_summary.matched_count}
+                    </>
+                  ) : (
+                    '点击“执行预览”查看提取结果、HTML代码和渲染视图。'
+                  )}
+                </div>
+                <Button
+                  size='sm'
+                  disabled={!selectedPageId || previewExtractMutation.isPending}
+                  onClick={() => {
+                    if (!selectedPageId) return
+                    const selectorError = validateCssSelectorSyntax(previewSelector)
+                    if (selectorError) {
+                      toast.error(selectorError)
+                      return
+                    }
+                    previewExtractMutation.mutate({
+                      kb_web_page_id: selectedPageId,
+                      fetch_mode: previewFetchMode,
+                      timeout_seconds: Math.max(5, Number(previewTimeoutSeconds || 20)),
+                      content_selector: previewSelector.trim() || undefined,
+                      include_raw_html: true,
+                    })
+                  }}
+                >
+                  {previewExtractMutation.isPending ? <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' /> : <Search className='mr-1.5 h-3.5 w-3.5' />}
+                  执行预览
+                </Button>
+              </div>
+            </div>
+
+            <div className='flex items-center gap-2 border-b border-slate-200 pb-2'>
+              <Button size='sm' variant={previewTab === 'text' ? 'default' : 'outline'} onClick={() => setPreviewTab('text')}>提取文本</Button>
+              <Button size='sm' variant={previewTab === 'html' ? 'default' : 'outline'} onClick={() => setPreviewTab('html')}>HTML代码</Button>
+              <Button size='sm' variant={previewTab === 'render' ? 'default' : 'outline'} onClick={() => setPreviewTab('render')}>渲染预览</Button>
+            </div>
+
+            <div className='min-h-0 flex-1 overflow-auto rounded-lg border border-slate-200 bg-white'>
+              {!previewResult ? (
+                <div className='flex h-full min-h-[280px] items-center justify-center text-sm text-slate-500'>
+                  暂无预览结果，请先执行预览
+                </div>
+              ) : previewTab === 'text' ? (
+                <pre className='whitespace-pre-wrap break-words p-3 text-xs leading-5 text-slate-700'>{previewResult.extracted_text || '（空）'}</pre>
+              ) : previewTab === 'html' ? (
+                <pre className='whitespace-pre-wrap break-all p-3 text-xs leading-5 text-slate-700'>{previewResult.raw_html || '（空）'}</pre>
+              ) : (
+                <iframe
+                  title='网页渲染预览'
+                  className='h-[58vh] w-full'
+                  sandbox=''
+                  srcDoc={previewResult.raw_html || '<html><body>（空）</body></html>'}
+                />
+              )}
+            </div>
+          </DialogContent>
+        </Dialog>
+
+        {/* 最近同步记录弹窗 */}
+        <Dialog open={recentRunsExpanded} onOpenChange={setRecentRunsExpanded}>
+          <DialogContent className='max-w-3xl max-h-[80vh] overflow-hidden flex flex-col'>
+            <DialogHeader>
+              <DialogTitle className='flex items-center gap-2'>
+                <History className='h-5 w-5 text-sky-600' />
+                同步记录
+                {selectedPage && (
+                  <span className='ml-1 text-sm font-normal text-slate-400'>
+                    · {selectedPage.name}
+                  </span>
+                )}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className='flex-1 overflow-y-auto py-2 -mx-2 px-2'>
+              {isLoadingSelectedPageRuns ? (
+                <div className='flex items-center justify-center py-12 text-sm text-slate-500'>
+                  <Loader2 className='mr-2 h-4 w-4 animate-spin text-blue-500' />
+                  加载同步记录中...
+                </div>
+              ) : (selectedPageRunsData?.items || []).length === 0 ? (
+                <div className='rounded-xl border border-dashed border-slate-300 bg-slate-50/50 p-8 text-center'>
+                  <History className='mx-auto mb-2 h-8 w-8 text-slate-300' />
+                  <p className='text-sm text-slate-500'>暂无同步记录</p>
+                  <p className='mt-1 text-xs text-slate-400'>对该页面进行同步后将显示记录</p>
+                </div>
+              ) : (
+                <ul className='space-y-2.5'>
+                  {(selectedPageRunsData?.items || []).map(run => (
+                    <li
+                      key={run.run_id}
+                      className={cn(
+                        'rounded-xl border p-3.5 transition-all',
+                        run.status === 'success' && 'border-emerald-200/60 bg-gradient-to-br from-emerald-50/50 to-white',
+                        run.status === 'failed' && 'border-rose-200/60 bg-gradient-to-br from-rose-50/50 to-white',
+                        (run.status === 'queued' || run.status === 'running') && 'border-amber-200/60 bg-gradient-to-br from-amber-50/50 to-white',
+                        !run.status || (run.status !== 'success' && run.status !== 'failed' && run.status !== 'queued' && run.status !== 'running') && 'border-slate-200/60 bg-white'
+                      )}
+                    >
+                      <div className='flex flex-wrap items-start justify-between gap-2'>
+                        <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                          <Badge
+                            variant='outline'
+                            className={cn(
+                              'font-normal',
+                              run.trigger_type === 'manual' && 'bg-blue-50 text-blue-600 border-blue-200',
+                              run.trigger_type === 'scheduled' && 'bg-purple-50 text-purple-600 border-purple-200',
+                              (!run.trigger_type || (run.trigger_type !== 'manual' && run.trigger_type !== 'scheduled')) && 'bg-slate-50 text-slate-600'
+                            )}
+                          >
+                            {run.trigger_type}
+                          </Badge>
+                          <span className='text-xs tabular-nums text-slate-400'>HTTP {run.http_status ?? '—'}</span>
+                        </div>
+                        <div
+                          className={cn(
+                            'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                            run.status === 'success' && 'bg-emerald-100/70 text-emerald-700',
+                            run.status === 'failed' && 'bg-rose-100/70 text-rose-700',
+                            (run.status === 'queued' || run.status === 'running') && 'bg-amber-100/70 text-amber-700',
+                            (!run.status || (run.status !== 'success' && run.status !== 'failed' && run.status !== 'queued' && run.status !== 'running')) && 'bg-slate-100/70 text-slate-600'
+                          )}
+                        >
+                          {run.status === 'success' && <CheckCircle2 className='h-3.5 w-3.5 shrink-0' />}
+                          {run.status === 'failed' && <AlertCircle className='h-3.5 w-3.5 shrink-0' />}
+                          {(run.status === 'queued' || run.status === 'running') && <Clock3 className='h-3.5 w-3.5 shrink-0' />}
+                          {formatRunStatus(run.status)}
+                        </div>
+                      </div>
+                      <dl className='mt-2.5 grid grid-cols-2 gap-x-4 gap-y-1 text-xs'>
+                        <div className='flex gap-2'>
+                          <dt className='shrink-0 text-slate-400'>开始</dt>
+                          <dd className='tabular-nums text-slate-600'>{formatTime(run.started_at || run.created_at)}</dd>
+                        </div>
+                        <div className='flex gap-2'>
+                          <dt className='shrink-0 text-slate-400'>结束</dt>
+                          <dd className='tabular-nums text-slate-600'>{formatTime(run.ended_at)}</dd>
+                        </div>
+                        <div className='col-span-2 flex gap-2'>
+                          <dt className='shrink-0 text-slate-400'>变化</dt>
+                          <dd className={cn(
+                            run.content_changed === true && 'text-amber-600',
+                            run.content_changed === false && 'text-emerald-600',
+                            run.content_changed === null && 'text-slate-400'
+                          )}>
+                            {run.content_changed === null ? '—' : run.content_changed ? '有变化' : '无变化'}
+                          </dd>
+                        </div>
+                      </dl>
+                      {run.error_message ? (
+                        <p
+                          className='mt-2.5 line-clamp-2 rounded-lg border border-rose-200/60 bg-rose-50/70 px-2.5 py-2 text-xs text-rose-600'
+                          title={run.error_message}
+                        >
+                          {run.error_message}
+                        </p>
+                      ) : null}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* 弹窗分页控件 */}
+            {selectedPageRunsData && selectedPageRunsData.total > 10 && (
+              <div className='flex items-center justify-between border-t border-slate-200 px-4 py-3'>
+                <span className='text-xs text-slate-500'>
+                  共 {selectedPageRunsData.total} 条
+                </span>
+                <div className='flex items-center gap-2'>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-8 w-16'
+                    disabled={dialogRunsPage <= 1}
+                    onClick={() => setDialogRunsPage(prev => Math.max(1, prev - 1))}
+                  >
+                    上一页
+                  </Button>
+                  <span className='text-xs text-slate-500'>
+                    {dialogRunsPage} / {Math.ceil(selectedPageRunsData.total / 10)}
+                  </span>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-8 w-16'
+                    disabled={dialogRunsPage >= Math.ceil(selectedPageRunsData.total / 10)}
+                    onClick={() => setDialogRunsPage(prev => Math.min(Math.ceil(selectedPageRunsData.total / 10), prev + 1))}
+                  >
+                    下一页
+                  </Button>
+                </div>
+              </div>
+            )}
+          </DialogContent>
+        </Dialog>
+      </div>
+    )
+  }
+
+  if (view === 'web-runs') {
+    return (
+      <div className='flex h-full min-h-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/80'>
+        {/* 顶栏不设 padding-top，避免标签栏与卡片之间出现一条「空白」底色带 */}
+        <main className='min-w-0 flex-1 px-6 pb-4 pt-0 md:pb-5'>
+          <Card className='flex h-full min-h-0 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm ring-1 ring-slate-950/5'>
+            <CardHeader className='relative space-y-0 overflow-hidden border-b border-sky-100/80 bg-gradient-to-br from-sky-50 via-cyan-50/85 to-violet-50/55 px-4 py-2.5 sm:px-5'>
+              {/* 右上角柔和高光，压低强度避免顶部像一块留白 */}
+              <div
+                className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_55%_at_95%_0%,rgba(255,255,255,0.42),transparent_50%)]'
+                aria-hidden
+              />
+              {/* 第一行：标题 + 统计（同排，统计字号略小作辅助） */}
+              <div className='relative z-[1] flex flex-wrap items-center gap-x-4 gap-y-2'>
+                <div className='flex min-w-0 flex-1 items-center gap-2 sm:min-w-[200px] sm:flex-none'>
+                  <div className='flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-white/85 text-sky-600 shadow-sm ring-1 ring-sky-100/90'>
+                    <Clock3 className='h-4 w-4' strokeWidth={2} />
+                  </div>
+                  <div className='min-w-0'>
+                    <CardTitle className='text-base font-semibold leading-tight text-slate-800'>同步记录</CardTitle>
+                    <p className='mt-0.5 text-[11px] leading-snug text-slate-500'>日志 · 筛选 · 校验</p>
+                  </div>
+                </div>
+                <div className='flex w-full flex-wrap items-center gap-x-2.5 gap-y-1 sm:ml-auto sm:w-auto sm:justify-end sm:gap-x-0'>
+                  {(
+                    [
+                      { label: '总页面', value: stats.total },
+                      { label: '同步中', value: stats.running, dot: 'bg-sky-400/70' },
+                      { label: '失败', value: stats.failed, dot: 'bg-rose-400/60' },
+                      { label: '待更新', value: stats.outdated, dot: 'bg-amber-400/60' },
+                    ] as const
+                  ).map((item, i) => (
+                    <span key={item.label} className='inline-flex items-center'>
+                      {i > 0 ? <span className='mx-2.5 hidden h-3 w-px bg-sky-200/70 sm:inline' aria-hidden /> : null}
+                      <span className='inline-flex items-center gap-1 text-[11px] text-slate-400'>
+                        {'dot' in item && item.dot ? (
+                          <span className={cn('inline-block size-1.5 shrink-0 rounded-full', item.dot)} aria-hidden />
+                        ) : null}
+                        <span>{item.label}</span>
+                        <span className='tabular-nums text-xs font-medium text-slate-600'>{item.value}</span>
+                      </span>
+                    </span>
+                  ))}
+                </div>
+              </div>
+              {/* 第二行：网页筛选在前，状态与操作按钮紧跟其后 */}
+              <div className='relative z-[1] mt-2.5 flex flex-wrap items-end gap-2 border-t border-white/50 pt-2.5'>
+                <div className='min-w-0 w-full flex-1 basis-0 sm:min-w-[220px]'>
+                  <p className='mb-1 text-[11px] font-medium text-slate-500'>按网页地址筛选</p>
+                  <Popover open={runsPagePickerOpen} onOpenChange={setRunsPagePickerOpen}>
+                    <PopoverTrigger asChild>
+                      <Button
+                        type='button'
+                        variant='outline'
+                        role='combobox'
+                        aria-expanded={runsPagePickerOpen}
+                        title={
+                          selectedPageId
+                            ? pageOptions.find(p => p.kb_web_page_id === selectedPageId)?.url
+                            : '查看所有页面的同步记录'
+                        }
+                        className='h-9 w-full justify-between gap-2 border-sky-200/70 bg-white/90 px-3 font-normal shadow-sm shadow-sky-100/40 hover:bg-white'
+                      >
+                        <span className='flex min-w-0 flex-1 items-center gap-2'>
+                          <Globe className='h-3.5 w-3.5 shrink-0 text-sky-600' aria-hidden />
+                          <span className='truncate text-left text-sm'>
+                            {selectedPageId
+                              ? pageOptions.find(p => p.kb_web_page_id === selectedPageId)?.name ||
+                                pageOptions.find(p => p.kb_web_page_id === selectedPageId)?.url ||
+                                '选择页面'
+                              : '全部页面'}
+                          </span>
+                        </span>
+                        <ChevronsUpDown className='h-3.5 w-3.5 shrink-0 opacity-50' aria-hidden />
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent
+                      className='w-[min(calc(100vw-2rem),440px)] p-0'
+                      align='start'
+                      sideOffset={4}
+                    >
+                      <Command>
+                        <CommandInput placeholder='搜索名称、URL、域名…' />
+                        <CommandList>
+                          <CommandEmpty>没有匹配的页面</CommandEmpty>
+                          <CommandGroup heading='范围'>
+                            <CommandItem
+                              value='全部页面 所有 不限定 任意 url'
+                              onSelect={() => {
+                                setSelectedPageId('')
+                                setRunsPagePickerOpen(false)
+                              }}
+                            >
+                              <Check className={cn('h-4 w-4 shrink-0', selectedPageId ? 'opacity-0' : 'opacity-100')} />
+                              <div className='flex min-w-0 flex-col gap-0.5'>
+                                <span className='font-medium'>全部页面</span>
+                                <span className='text-xs text-muted-foreground'>不限定 URL，显示所有同步记录</span>
+                              </div>
+                            </CommandItem>
+                          </CommandGroup>
+                          {pageOptions.length > 0 ? (
+                            <>
+                              <CommandSeparator />
+                              <CommandGroup heading='网页地址'>
+                                {pageOptions.map(item => {
+                                  const searchBlob = `${item.name} ${item.url} ${item.domain}`.trim()
+                                  return (
+                                    <CommandItem
+                                      key={item.kb_web_page_id}
+                                      value={searchBlob}
+                                      onSelect={() => {
+                                        setSelectedPageId(item.kb_web_page_id)
+                                        setRunsPagePickerOpen(false)
+                                      }}
+                                    >
+                                      <Check
+                                        className={cn(
+                                          'h-4 w-4 shrink-0',
+                                          selectedPageId !== item.kb_web_page_id && 'opacity-0'
+                                        )}
+                                      />
+                                      <div className='min-w-0 flex-1'>
+                                        <p className='truncate text-sm font-medium leading-tight'>{item.name || item.url}</p>
+                                        <p className='mt-0.5 truncate text-xs text-muted-foreground' title={item.url}>
+                                          {item.url}
+                                        </p>
+                                        {item.domain ? (
+                                          <p className='mt-0.5 text-[11px] text-muted-foreground/80'>域名 · {item.domain}</p>
+                                        ) : null}
+                                      </div>
+                                    </CommandItem>
+                                  )
+                                })}
+                              </CommandGroup>
+                            </>
+                          ) : (
+                            <p className='px-3 py-2.5 text-center text-xs text-muted-foreground'>
+                              暂无已登记页面，请到「网页页面」添加 URL
+                            </p>
+                          )}
+                        </CommandList>
+                      </Command>
+                    </PopoverContent>
+                  </Popover>
+                </div>
+                <div className='flex w-full shrink-0 flex-wrap items-center gap-1.5 sm:w-auto sm:pb-0'>
+                  <Select value={runStatusFilter} onValueChange={value => setRunStatusFilter(value as RunStatusFilter)}>
+                    <SelectTrigger className='h-9 w-full min-w-[124px] border-sky-200/70 bg-white/90 text-sm shadow-sm shadow-sky-100/40 backdrop-blur-[2px] hover:bg-white sm:w-[128px]'>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value='all'>全部状态</SelectItem>
+                      <SelectItem value='queued'>排队中</SelectItem>
+                      <SelectItem value='running'>执行中</SelectItem>
+                      <SelectItem value='success'>成功</SelectItem>
+                      <SelectItem value='failed'>失败</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Button
+                    variant='outline'
+                    size='sm'
+                    className='h-9 border-sky-200/80 bg-white/95 px-3 text-sm shadow-sm shadow-sky-100/30 hover:bg-white'
+                    disabled={isManualRefreshRuns}
+                    onClick={() => {
+                      setIsManualRefreshRuns(true)
+                      void refetchRuns().finally(() => setIsManualRefreshRuns(false))
+                    }}
+                  >
+                    <RefreshCw className={cn('mr-1.5 h-3.5 w-3.5', isManualRefreshRuns && 'animate-spin')} />
+                    {isManualRefreshRuns ? '查询中…' : '查询'}
+                  </Button>
+                  <Button
+                    variant='secondary'
+                    size='sm'
+                    className='h-9 border border-sky-200/50 bg-white/90 px-3 text-sm shadow-sm shadow-sky-100/25 hover:bg-white'
+                    disabled={!selectedPageId || latestCheckMutation.isPending}
+                    onClick={() => latestCheckMutation.mutate({ kb_web_page_id: selectedPageId })}
+                  >
+                    {latestCheckMutation.isPending ? (
+                      <Loader2 className='mr-1.5 h-3.5 w-3.5 animate-spin' />
+                    ) : (
+                      <Webhook className='mr-1.5 h-3.5 w-3.5' />
+                    )}
+                    校验最新
+                  </Button>
+                </div>
+              </div>
+            </CardHeader>
+            <CardContent className='relative min-h-0 flex-1 overflow-auto bg-slate-50/40 p-4 md:p-5'>
+              {isLoadingRuns ? (
+                <div className='flex flex-col items-center justify-center gap-3 py-16 text-sm text-slate-500'>
+                  <Loader2 className='h-8 w-8 animate-spin text-slate-400' />
+                  <span>加载同步记录中…</span>
+                </div>
+              ) : (runsData?.items || []).length === 0 ? (
+                <div className='flex flex-col items-center justify-center rounded-2xl border border-dashed border-slate-200/80 bg-white/60 py-14 text-center'>
+                  <Globe className='mb-2 h-9 w-9 text-slate-300' />
+                  <p className='text-sm text-slate-500'>暂无同步记录</p>
+                  <p className='mt-1 max-w-xs text-xs text-slate-400'>调整筛选条件或等待同步任务完成后将在此展示</p>
+                </div>
+              ) : (
+                <>
+                  <ul className='mx-auto max-w-4xl space-y-3'>
+                    {(runsData?.items || []).map(run => {
+                      // 通过 kb_web_page_id 查找对应的页面信息
+                      const relatedPage = pageOptions.find(p => p.kb_web_page_id === run.kb_web_page_id)
+                      return (
+                      <li
+                        key={run.run_id}
+                        className={cn(
+                          'rounded-xl border p-4 shadow-sm transition-all hover:shadow-md',
+                          run.status === 'success' && 'border-emerald-200/50 bg-gradient-to-br from-white to-emerald-50/30 hover:border-emerald-300/60',
+                          run.status === 'failed' && 'border-rose-200/50 bg-gradient-to-br from-white to-rose-50/30 hover:border-rose-300/60',
+                          (run.status === 'queued' || run.status === 'running') && 'border-amber-200/50 bg-gradient-to-br from-white to-amber-50/30 hover:border-amber-300/60',
+                          (!run.status || (run.status !== 'success' && run.status !== 'failed' && run.status !== 'queued' && run.status !== 'running')) && 'border-slate-200/80 bg-white hover:border-slate-300/90'
+                        )}
+                      >
+                        {/* 页面标题和地址 */}
+                        {relatedPage && (
+                          <div className='mb-2.5 flex items-start gap-2 rounded-lg bg-slate-50/80 p-2.5'>
+                            <Globe className='mt-0.5 h-3.5 w-3.5 shrink-0 text-slate-400' />
+                            <div className='min-w-0 flex-1'>
+                              <p className='truncate text-sm font-medium text-slate-700' title={relatedPage.name || relatedPage.url}>
+                                {relatedPage.name || relatedPage.url}
+                              </p>
+                              <p className='mt-0.5 truncate text-xs text-slate-400' title={relatedPage.url}>
+                                {relatedPage.url}
+                              </p>
+                            </div>
+                          </div>
+                        )}
+                        <div className='flex flex-wrap items-start justify-between gap-3'>
+                          <div className='flex min-w-0 flex-wrap items-center gap-2'>
+                            <Badge
+                              variant='secondary'
+                              className={cn(
+                                'font-normal',
+                                run.trigger_type === 'manual' && 'bg-blue-50 text-blue-600 border-blue-200',
+                                run.trigger_type === 'scheduled' && 'bg-purple-50 text-purple-600 border-purple-200',
+                                (!run.trigger_type || (run.trigger_type !== 'manual' && run.trigger_type !== 'scheduled')) && 'bg-slate-50 text-slate-600'
+                              )}
+                            >
+                              {run.trigger_type}
+                            </Badge>
+                            <span className='text-xs tabular-nums text-slate-400'>HTTP {run.http_status ?? '—'}</span>
+                          </div>
+                          <div
+                            className={cn(
+                              'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-medium',
+                              run.status === 'success' && 'bg-emerald-100/70 text-emerald-700',
+                              run.status === 'failed' && 'bg-rose-100/70 text-rose-700',
+                              (run.status === 'queued' || run.status === 'running') && 'bg-amber-100/70 text-amber-700',
+                              (!run.status || (run.status !== 'success' && run.status !== 'failed' && run.status !== 'queued' && run.status !== 'running')) && 'bg-slate-100/70 text-slate-600'
+                            )}
+                          >
+                            {run.status === 'success' && <CheckCircle2 className='h-3.5 w-3.5 shrink-0' />}
+                            {run.status === 'failed' && <AlertCircle className='h-3.5 w-3.5 shrink-0' />}
+                            {(run.status === 'queued' || run.status === 'running') && <Clock3 className='h-3.5 w-3.5 shrink-0' />}
+                            {formatRunStatus(run.status)}
+                          </div>
+                        </div>
+                        <dl className='mt-3 grid gap-2 text-xs sm:grid-cols-2 sm:gap-x-6'>
+                          <div className='flex gap-2 text-slate-500'>
+                            <dt className='shrink-0 text-slate-400'>开始</dt>
+                            <dd className='tabular-nums text-slate-600'>{formatTime(run.started_at || run.created_at)}</dd>
+                          </div>
+                          <div className='flex gap-2 text-slate-500'>
+                            <dt className='shrink-0 text-slate-400'>结束</dt>
+                            <dd className='tabular-nums text-slate-600'>{formatTime(run.ended_at)}</dd>
+                          </div>
+                          <div className='flex gap-2 text-slate-500 sm:col-span-2'>
+                            <dt className='shrink-0 text-slate-400'>变化</dt>
+                            <dd className={cn(
+                              run.content_changed === true && 'text-amber-600',
+                              run.content_changed === false && 'text-emerald-600',
+                              run.content_changed === null && 'text-slate-400'
+                            )}>
+                              {run.content_changed === null ? '—' : run.content_changed ? '有变化' : '无变化'}
+                            </dd>
+                          </div>
+                        </dl>
+                        {run.error_message ? (
+                          <p
+                            className='mt-3 line-clamp-2 rounded-lg border border-rose-200/60 bg-rose-50/70 px-2.5 py-2 text-xs text-rose-600'
+                            title={run.error_message}
+                          >
+                            {run.error_message}
+                          </p>
+                        ) : null}
+                      </li>
+                    )})}
+                  </ul>
+                  
+                  {/* 分页控件 */}
+                  {runsData && runsData.total > 0 && (
+                    <div className='mx-auto mt-6 max-w-4xl'>
+                      <div className='flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-200/60 bg-white/90 px-4 py-3 shadow-sm'>
+                        <span className='text-xs text-slate-500'>
+                          共 <span className='font-medium text-slate-700'>{runsData.total}</span> 条记录
+                          {runsData.total > 20 && (
+                            <span className='ml-2 text-slate-400'>· 每页 20 条</span>
+                          )}
+                        </span>
+                        <div className='flex items-center gap-2'>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            className='h-8 w-20'
+                            disabled={runsPage <= 1}
+                            onClick={() => setRunsPage(prev => Math.max(1, prev - 1))}
+                          >
+                            <ChevronsUpDown className='mr-1 h-3.5 w-3.5 rotate-90' />
+                            上一页
+                          </Button>
+                          <div className='flex items-center gap-1.5'>
+                            <span className='text-xs text-slate-500'>第</span>
+                            <Input
+                              type='number'
+                              min={1}
+                              max={Math.max(1, Math.ceil(runsData.total / 20))}
+                              value={runsPage}
+                              onChange={e => {
+                                const val = parseInt(e.target.value, 10)
+                                const maxPage = Math.max(1, Math.ceil(runsData.total / 20))
+                                if (!isNaN(val) && val >= 1 && val <= maxPage) {
+                                  setRunsPage(val)
+                                }
+                              }}
+                              className='h-8 w-14 text-center text-xs'
+                            />
+                            <span className='text-xs text-slate-500'>页</span>
+                            <span className='text-xs text-slate-400'>
+                              / 共 {Math.max(1, Math.ceil(runsData.total / 20))} 页
+                            </span>
+                          </div>
+                          <Button
+                            variant='outline'
+                            size='sm'
+                            className='h-8 w-20'
+                            disabled={runsPage >= Math.max(1, Math.ceil(runsData.total / 20))}
+                            onClick={() => setRunsPage(prev => Math.min(Math.max(1, Math.ceil(runsData.total / 20)), prev + 1))}
+                          >
+                            下一页
+                            <ChevronsUpDown className='ml-1 h-3.5 w-3.5 -rotate-90' />
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              )}
+              {isManualRefreshRuns ? (
+                <div
+                  className='pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-white/55 backdrop-blur-[1px]'
+                  aria-busy
+                  aria-label='正在按当前条件查询同步记录'
+                >
+                  <div className='flex flex-col items-center gap-2 rounded-lg border border-slate-200 bg-white/95 px-4 py-3 shadow-sm'>
+                    <Loader2 className='h-5 w-5 animate-spin text-blue-500' />
+                    <span className='text-xs text-slate-600'>正在查询…</span>
+                  </div>
+                </div>
+              ) : null}
+            </CardContent>
+          </Card>
+        </main>
+      </div>
+    )
+  }
+
+  return (
+    <div className='flex h-full min-h-0 bg-gradient-to-br from-slate-50 via-white to-slate-50/80'>
+      <main className='flex h-full min-h-0 min-w-0 flex-1 flex-col px-6 pb-4 pt-0 md:pb-5'>
+        <Card className='flex min-h-0 flex-1 flex-col overflow-hidden border-slate-200/70 bg-white shadow-sm ring-1 ring-slate-950/5'>
+          <CardHeader className='relative shrink-0 space-y-0 overflow-hidden border-b border-sky-100/80 bg-gradient-to-br from-sky-50 via-cyan-50/85 to-violet-50/55 px-4 py-3 sm:px-5'>
+            <div
+              className='pointer-events-none absolute inset-0 bg-[radial-gradient(ellipse_85%_55%_at_95%_0%,rgba(255,255,255,0.42),transparent_50%)]'
+              aria-hidden
+            />
+            <div className='relative z-[1] flex flex-wrap items-center gap-x-4 gap-y-2'>
+              <div className='flex min-w-0 items-center gap-2.5'>
+                <div className='flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-white/85 text-sky-600 shadow-sm ring-1 ring-sky-100/90'>
+                  <Globe className='h-4 w-4' strokeWidth={2} />
+                </div>
+                <div>
+                  <CardTitle className='text-base font-semibold leading-tight text-slate-800'>站点抓取与同步策略</CardTitle>
+                  <p className='mt-0.5 text-[11px] leading-snug text-slate-500'>
+                    现阶段抓取深度只支持 {effectiveCrawlDepth || 1} 层 · 知识库默认定时；单页覆盖请在「网页页面」配置
+                  </p>
+                </div>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className='min-h-0 flex-1 space-y-6 overflow-y-auto p-4 sm:p-5'>
+            <section className='space-y-4'>
+              <ScheduleRuleBuilder
+                title='知识库默认定时'
+                description='对全部网页页面生效。推荐优先使用“间隔”或“每日”模式；需要更复杂的节奏时再切换到 Cron。'
+                form={kbScheduleForm}
+                onChange={setKbScheduleForm}
+                nextTriggerAt={kbDefaultSchedule?.next_trigger_at}
+                saveLabel='保存默认规则'
+                saveDisabled={saveScheduleMutation.isPending}
+                isSaving={saveScheduleMutation.isPending}
+                onSave={() =>
+                  saveScheduleMutation.mutate({
+                    scheduleId: kbDefaultSchedule?.schedule_id,
+                    payload: buildSchedulePayload(
+                      {
+                        kb_id: kbId,
+                        scope_level: 'kb_default',
+                      },
+                      kbScheduleForm
+                    ),
+                  })
+                }
+              />
+            </section>
+          </CardContent>
+        </Card>
+      </main>
+    </div>
+  )
+}

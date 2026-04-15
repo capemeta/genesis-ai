@@ -1,0 +1,73 @@
+<svg viewBox="0 0 900 240" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="A_fog" cx="18%" cy="55%" r="55%">
+    <stop offset="0%" stop-color="#F0F4FF" stop-opacity="1"></stop>
+    <stop offset="100%" stop-color="#F0F4FF" stop-opacity="0"></stop>
+  </radialGradient>
+  <radialGradient id="A_glow1" cx="75%" cy="45%" r="45%">
+    <stop offset="0%" stop-color="#D4E1FF" stop-opacity="0.9"></stop>
+    <stop offset="100%" stop-color="#EEF2FF" stop-opacity="0"></stop>
+  </radialGradient>
+  <radialGradient id="A_glow2" cx="95%" cy="80%" r="35%">
+    <stop offset="0%" stop-color="#DDD0FF" stop-opacity="0.6"></stop>
+    <stop offset="100%" stop-color="#F0EEFF" stop-opacity="0"></stop>
+  </radialGradient>
+  <radialGradient id="A_node" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#7A9EE8"></stop>
+    <stop offset="100%" stop-color="#9B7EE8"></stop>
+  </radialGradient>
+  <filter id="A_soft"><feGaussianBlur stdDeviation="1.2"></feGaussianBlur></filter>
+</defs>
+<rect width="900" height="240" fill="#EEF2FF"></rect>
+<rect width="900" height="240" fill="url(#A_glow1)"></rect>
+<rect width="900" height="240" fill="url(#A_glow2)"></rect>
+<!-- subtle dot grid right half -->
+<g opacity="0.12">
+  <line x1="460" y1="0" x2="460" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="510" y1="0" x2="510" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="560" y1="0" x2="560" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="610" y1="0" x2="610" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="660" y1="0" x2="660" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="710" y1="0" x2="710" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="760" y1="0" x2="760" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="810" y1="0" x2="810" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+  <line x1="860" y1="0" x2="860" y2="240" stroke="#7A9EE8" stroke-width="0.3" stroke-dasharray="2,18"></line>
+</g>
+<!-- Neural network connections -->
+<g opacity="0.22" stroke="#7A9EE8" stroke-width="0.8" fill="none">
+  <!-- input layer to hidden1 -->
+  <line x1="520" y1="40" x2="640" y2="30"></line><line x1="520" y1="40" x2="640" y2="80"></line><line x1="520" y1="40" x2="640" y2="130"></line>
+  <line x1="520" y1="90" x2="640" y2="30"></line><line x1="520" y1="90" x2="640" y2="80"></line><line x1="520" y1="90" x2="640" y2="130"></line><line x1="520" y1="90" x2="640" y2="180"></line>
+  <line x1="520" y1="140" x2="640" y2="30"></line><line x1="520" y1="140" x2="640" y2="80"></line><line x1="520" y1="140" x2="640" y2="130"></line><line x1="520" y1="140" x2="640" y2="180"></line>
+  <line x1="520" y1="190" x2="640" y2="80"></line><line x1="520" y1="190" x2="640" y2="130"></line><line x1="520" y1="190" x2="640" y2="180"></line>
+  <!-- hidden1 to hidden2 -->
+  <line x1="640" y1="30" x2="760" y2="55"></line><line x1="640" y1="30" x2="760" y2="110"></line><line x1="640" y1="30" x2="760" y2="165"></line>
+  <line x1="640" y1="80" x2="760" y2="55"></line><line x1="640" y1="80" x2="760" y2="110"></line><line x1="640" y1="80" x2="760" y2="165"></line>
+  <line x1="640" y1="130" x2="760" y2="55"></line><line x1="640" y1="130" x2="760" y2="110"></line><line x1="640" y1="130" x2="760" y2="165"></line><line x1="640" y1="130" x2="760" y2="210"></line>
+  <line x1="640" y1="180" x2="760" y2="110"></line><line x1="640" y1="180" x2="760" y2="165"></line><line x1="640" y1="180" x2="760" y2="210"></line>
+  <!-- hidden2 to output -->
+  <line x1="760" y1="55" x2="870" y2="90"></line><line x1="760" y1="55" x2="870" y2="150"></line>
+  <line x1="760" y1="110" x2="870" y2="90"></line><line x1="760" y1="110" x2="870" y2="150"></line>
+  <line x1="760" y1="165" x2="870" y2="90"></line><line x1="760" y1="165" x2="870" y2="150"></line>
+  <line x1="760" y1="210" x2="870" y2="150"></line>
+</g>
+<!-- Input nodes -->
+<g><circle cx="520" cy="40" r="7" fill="#C8D8FF" stroke="#8AACEE" stroke-width="1"></circle><circle cx="520" cy="90" r="7" fill="#C8D8FF" stroke="#8AACEE" stroke-width="1"></circle><circle cx="520" cy="140" r="7" fill="#C8D8FF" stroke="#8AACEE" stroke-width="1"></circle><circle cx="520" cy="190" r="7" fill="#C8D8FF" stroke="#8AACEE" stroke-width="1"></circle></g>
+<!-- Hidden1 -->
+<g><circle cx="640" cy="30" r="9" fill="#B8CAFF" stroke="#7A9EE8" stroke-width="1.2"></circle><circle cx="640" cy="80" r="9" fill="#B8CAFF" stroke="#7A9EE8" stroke-width="1.2"></circle><circle cx="640" cy="130" r="9" fill="#B8CAFF" stroke="#7A9EE8" stroke-width="1.2"></circle><circle cx="640" cy="180" r="9" fill="#B8CAFF" stroke="#7A9EE8" stroke-width="1.2"></circle></g>
+<!-- Hidden2 -->
+<g><circle cx="760" cy="55" r="9" fill="#C0B8FF" stroke="#9A8EE8" stroke-width="1.2"></circle><circle cx="760" cy="110" r="9" fill="#C0B8FF" stroke="#9A8EE8" stroke-width="1.2"></circle><circle cx="760" cy="165" r="9" fill="#C0B8FF" stroke="#9A8EE8" stroke-width="1.2"></circle><circle cx="760" cy="210" r="9" fill="#C0B8FF" stroke="#9A8EE8" stroke-width="1.2"></circle></g>
+<!-- Output -->
+<g><circle cx="870" cy="90" r="11" fill="#B0C4FF" stroke="#6A8EE0" stroke-width="1.5"></circle><circle cx="870" cy="90" r="5" fill="#8AACEE" opacity="0.6"></circle><circle cx="870" cy="150" r="11" fill="#C4B0FF" stroke="#8A6EE0" stroke-width="1.5"></circle><circle cx="870" cy="150" r="5" fill="#9A8EE8" opacity="0.6"></circle></g>
+<!-- glowing pulses on a few active paths -->
+<circle cx="582" cy="62" r="3" fill="#8AACEE" opacity="0.55"></circle>
+<circle cx="700" cy="102" r="3" fill="#9A8EE8" opacity="0.5"></circle>
+<circle cx="810" cy="127" r="3" fill="#8AACEE" opacity="0.45"></circle>
+<!-- layer labels -->
+<text x="520" y="218" text-anchor="middle" font-size="9" fill="#9AAAD0" opacity="0.7">Input</text>
+<text x="640" y="218" text-anchor="middle" font-size="9" fill="#9AAAD0" opacity="0.7">Hidden 1</text>
+<text x="760" y="232" text-anchor="middle" font-size="9" fill="#9AAAD0" opacity="0.7">Hidden 2</text>
+<text x="870" y="180" text-anchor="middle" font-size="9" fill="#9AAAD0" opacity="0.7">Output</text>
+<!-- left fog overlay to keep text readable -->
+<rect width="900" height="240" fill="url(#A_fog)"></rect>
+</svg>

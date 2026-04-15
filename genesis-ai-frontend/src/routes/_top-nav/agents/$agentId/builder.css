@@ -1,0 +1,89 @@
+/* ReactFlow 自定义样式 - 调试修复版 */
+
+/* 1. 强制边可见 */
+.react-flow__edges {
+  pointer-events: none !important; /* 容器不拦截点击 */
+  overflow: visible !important;
+}
+
+.react-flow__edge {
+  pointer-events: all !important; /* 只有线条本身可点击 */
+}
+
+.react-flow__edge-path {
+  stroke: #3b82f6 !important;
+  stroke-width: 2.5 !important;
+  fill: none !important;
+  opacity: 0.8 !important;
+  stroke-opacity: 0.8 !important;
+  visibility: visible !important;
+}
+
+.react-flow__edge.selected .react-flow__edge-path {
+  stroke-width: 3.5 !important;
+  stroke-opacity: 1 !important;
+}
+
+.react-flow__edge:hover .react-flow__edge-path {
+  stroke-width: 3.5 !important;
+  stroke-opacity: 1 !important;
+}
+
+/* 2. 箭头标记样式 */
+.react-flow__arrowhead {
+  fill: #3b82f6 !important;
+  opacity: 1 !important;
+}
+
+/* 3. 连接线动画 */
+.react-flow__edge.animated .react-flow__edge-path {
+  stroke-dasharray: 10 !important;
+  animation: dashdraw 0.5s linear infinite !important;
+}
+
+/* 4. 节点基础样式 - 移除 z-index */
+.react-flow__node {
+  cursor: pointer;
+}
+
+.react-flow__node.selected {
+  outline: none !important;
+}
+
+/* 5. 连接手柄样式 */
+.react-flow__handle {
+  width: 12px !important;
+  height: 12px !important;
+  background: white !important;
+  border: 3px solid #3b82f6 !important;
+  border-radius: 50% !important;
+  opacity: 1 !important;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.2) !important;
+}
+
+.react-flow__handle:hover {
+  transform: scale(1.5) !important;
+}
+
+/* 6. 背景样式 - 降低对比度确保线清晰 */
+.react-flow__background {
+  background-color: #f8fafc; /* 极浅灰 */
+}
+
+/* 控件和地图样式 */
+.react-flow__controls {
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1) !important;
+}
+
+.react-flow__minimap {
+  background-color: white !important;
+}
+
+@keyframes dashdraw {
+  from {
+    stroke-dashoffset: 20;
+  }
+  to {
+    stroke-dashoffset: 0;
+  }
+}

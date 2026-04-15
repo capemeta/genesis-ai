@@ -1,0 +1,11 @@
+# 数据目录
+data/
+!data/.gitkeep
+
+# 日志文件
+*.log
+
+# 临时文件
+*.tmp
+*.swp
+*~

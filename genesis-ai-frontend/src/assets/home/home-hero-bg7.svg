@@ -1,0 +1,80 @@
+<svg viewBox="0 0 1400 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="v3_main" cx="72%" cy="50%" r="55%">
+    <stop offset="0%" stop-color="#C4DCFF"/>
+    <stop offset="100%" stop-color="#EBF3FF"/>
+  </radialGradient>
+  <radialGradient id="v3_purp" cx="95%" cy="15%" r="40%">
+    <stop offset="0%" stop-color="#D4C4FF" stop-opacity="0.65"/>
+    <stop offset="100%" stop-color="#EBF3FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="v3_fog" cx="14%" cy="52%" r="50%">
+    <stop offset="0%" stop-color="#EBF3FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#EBF3FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="v3_prism1" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#A8D0F8" stop-opacity="0.3"/>
+    <stop offset="100%" stop-color="#C0B8FF" stop-opacity="0.2"/>
+  </linearGradient>
+  <linearGradient id="v3_prism2" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#C0B8FF" stop-opacity="0.2"/>
+    <stop offset="100%" stop-color="#A8D0F8" stop-opacity="0.3"/>
+  </linearGradient>
+  <linearGradient id="v3_left_blend" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#E8F2FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#E8F2FF" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="v3_blur"><feGaussianBlur stdDeviation="10"/></filter>
+</defs>
+<rect width="1400" height="260" fill="#E8F2FF"/>
+<g transform="translate(500 0)">
+<rect width="900" height="260" fill="#E8F2FF"/>
+<rect width="900" height="260" fill="url(#v3_main)"/>
+<rect width="900" height="260" fill="url(#v3_purp)"/>
+<g opacity="0.22">
+  <polygon points="710,130 600,0 900,0" fill="url(#v3_prism1)"/>
+  <polygon points="710,130 900,0 900,100" fill="#B0C8FF" opacity="0.12"/>
+  <polygon points="710,130 900,160 900,260" fill="url(#v3_prism2)"/>
+  <polygon points="710,130 600,260 900,260" fill="#C0B4FF" opacity="0.1"/>
+  <polygon points="710,130 460,80 600,0" fill="#A8D0F8" opacity="0.12"/>
+  <polygon points="710,130 460,180 600,260" fill="#A8C0FF" opacity="0.12"/>
+</g>
+<g stroke="#8AAEE0" stroke-width="0.5" opacity="0.25" fill="none">
+  <line x1="710" y1="130" x2="900" y2="22"/>
+  <line x1="710" y1="130" x2="900" y2="75"/>
+  <line x1="710" y1="130" x2="900" y2="130"/>
+  <line x1="710" y1="130" x2="900" y2="185"/>
+  <line x1="710" y1="130" x2="900" y2="238"/>
+  <line x1="710" y1="130" x2="640" y2="0"/>
+  <line x1="710" y1="130" x2="750" y2="0"/>
+  <line x1="710" y1="130" x2="640" y2="260"/>
+  <line x1="710" y1="130" x2="750" y2="260"/>
+  <line x1="710" y1="130" x2="460" y2="60"/>
+  <line x1="710" y1="130" x2="460" y2="200"/>
+</g>
+<g stroke="#B0A0E8" stroke-width="0.6" opacity="0.2" fill="none">
+  <line x1="710" y1="130" x2="900" y2="0"/>
+  <line x1="710" y1="130" x2="810" y2="0"/>
+</g>
+<g fill="none">
+  <ellipse cx="710" cy="130" rx="88" ry="76" stroke="#7AAEE0" stroke-width="0.7" opacity="0.3"/>
+  <ellipse cx="710" cy="130" rx="110" ry="95" stroke="#7AAEE0" stroke-width="0.5" opacity="0.22"/>
+  <ellipse cx="710" cy="130" rx="135" ry="116" stroke="#7AAEE0" stroke-width="0.4" opacity="0.16"/>
+  <ellipse cx="710" cy="130" rx="162" ry="140" stroke="#7AAEE0" stroke-width="0.3" opacity="0.1"/>
+</g>
+<circle cx="710" cy="130" r="90" fill="#B8D4FF" opacity="0.2" filter="url(#v3_blur)"/>
+<circle cx="710" cy="130" r="64" fill="#D8EEFF" opacity="0.92"/>
+<circle cx="710" cy="130" r="52" fill="#A8D0F8" opacity="0.95"/>
+<circle cx="710" cy="130" r="40" fill="#6AAEE8" opacity="0.95"/>
+<circle cx="710" cy="130" r="28" fill="#2E7DD8" opacity="0.95"/>
+<circle cx="710" cy="130" r="17" fill="#0A50B8" opacity="0.95"/>
+<circle cx="710" cy="130" r="6" fill="#082E80" opacity="0.95"/>
+<path d="M 665,86 A 64,64 0 0,1 755,86" fill="none" stroke="#EAF4FF" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+<text x="710" y="145" text-anchor="middle" font-family="Georgia,serif" font-size="52" font-weight="400" fill="#FFFFFF" opacity="0.95">G</text>
+<polygon points="870,0 900,0 900,55" fill="#C8B8FF" opacity="0.25"/>
+<polygon points="870,0 900,55 855,40" fill="#B0A8F0" opacity="0.18"/>
+<text x="710" y="212" text-anchor="middle" font-family="Georgia,serif" font-size="10" fill="#2060B8" opacity="0.4" letter-spacing="4">GENESIS  AI</text>
+<rect width="900" height="260" fill="url(#v3_fog)"/>
+</g>
+<rect x="460" y="0" width="120" height="260" fill="url(#v3_left_blend)"/>
+</svg>

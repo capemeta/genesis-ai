@@ -1,0 +1,79 @@
+<svg viewBox="0 0 1400 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="v1_bg" cx="65%" cy="50%" r="60%">
+    <stop offset="0%" stop-color="#D0E8FF"/>
+    <stop offset="100%" stop-color="#EEF5FF"/>
+  </radialGradient>
+  <radialGradient id="v1_fog" cx="14%" cy="52%" r="50%">
+    <stop offset="0%" stop-color="#EEF5FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#EEF5FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="v1_purple" cx="90%" cy="80%" r="35%">
+    <stop offset="0%" stop-color="#DDD0FF" stop-opacity="0.5"/>
+    <stop offset="100%" stop-color="#EEF5FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="v1_core" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#082E80"/>
+    <stop offset="33%" stop-color="#0A50B8"/>
+    <stop offset="55%" stop-color="#2E7DD8"/>
+    <stop offset="75%" stop-color="#6AAEE8"/>
+    <stop offset="90%" stop-color="#A8D0F8"/>
+    <stop offset="100%" stop-color="#D8EEFF"/>
+  </radialGradient>
+  <radialGradient id="v1_glow" cx="50%" cy="50%" r="50%">
+    <stop offset="0%" stop-color="#A8D0F8" stop-opacity="0.4"/>
+    <stop offset="100%" stop-color="#D8EEFF" stop-opacity="0"/>
+  </radialGradient>
+  <filter id="v1_blur"><feGaussianBlur stdDeviation="8"/></filter>
+  <filter id="v1_softblur"><feGaussianBlur stdDeviation="2"/></filter>
+  <clipPath id="v1_clip"><rect width="900" height="260"/></clipPath>
+  <linearGradient id="v1_left_blend" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#EAF3FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#EAF3FF" stop-opacity="0"/>
+  </linearGradient>
+</defs>
+<rect width="1400" height="260" fill="#EAF3FF"/>
+<g transform="translate(500 0)">
+<rect width="900" height="260" fill="#EAF3FF"/>
+<rect width="900" height="260" fill="url(#v1_bg)"/>
+<rect width="900" height="260" fill="url(#v1_purple)"/>
+<g opacity="0.1" clip-path="url(#v1_clip)">
+  <pattern id="v1_dots" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+    <circle cx="0" cy="0" r="0.8" fill="#5A90D0"/>
+  </pattern>
+  <rect x="420" width="480" height="260" fill="url(#v1_dots)"/>
+</g>
+<g fill="none" clip-path="url(#v1_clip)">
+  <ellipse cx="700" cy="130" rx="230" ry="115" stroke="#A8D0F8" stroke-width="0.5" opacity="0.3"/>
+  <ellipse cx="700" cy="130" rx="200" ry="100" stroke="#A8D0F8" stroke-width="0.5" opacity="0.35"/>
+  <ellipse cx="700" cy="130" rx="168" ry="84" stroke="#8ABCE8" stroke-width="0.6" opacity="0.38"/>
+  <ellipse cx="700" cy="130" rx="138" ry="69" stroke="#7AAEE0" stroke-width="0.7" opacity="0.42"/>
+  <ellipse cx="700" cy="130" rx="110" ry="55" stroke="#6A9ED8" stroke-width="0.8" opacity="0.45"/>
+  <ellipse cx="700" cy="130" rx="84" ry="42" stroke="#5A8ED0" stroke-width="0.9" opacity="0.5"/>
+</g>
+<circle cx="700" cy="130" r="80" fill="#B8D8FF" opacity="0.2" filter="url(#v1_blur)"/>
+<circle cx="700" cy="130" r="62" fill="#D8EEFF" opacity="0.9"/>
+<circle cx="700" cy="130" r="50" fill="#A8D0F8" opacity="0.95"/>
+<circle cx="700" cy="130" r="39" fill="#6AAEE8" opacity="0.95"/>
+<circle cx="700" cy="130" r="28" fill="#2E7DD8" opacity="0.95"/>
+<circle cx="700" cy="130" r="17" fill="#0A50B8" opacity="0.95"/>
+<circle cx="700" cy="130" r="7" fill="#082E80" opacity="0.95"/>
+<path d="M 656,86 A 62,62 0 0,1 744,86" fill="none" stroke="#EAF4FF" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+<text x="700" y="143" text-anchor="middle" font-family="Georgia,serif" font-size="52" font-weight="400" fill="#FFFFFF" opacity="0.95">G</text>
+<g fill="none" stroke="#8ABCE8" opacity="0.2" clip-path="url(#v1_clip)">
+  <path d="M 638,102 Q 580,90 520,98 Q 500,100 480,97"/>
+  <path d="M 632,118 Q 570,112 510,118 Q 490,120 470,117"/>
+  <path d="M 630,130 Q 565,128 505,132 Q 485,133 465,131"/>
+  <path d="M 632,142 Q 570,146 510,142 Q 490,140 472,143"/>
+  <path d="M 638,158 Q 580,166 522,160 Q 502,158 482,161"/>
+</g>
+<text x="700" y="208" text-anchor="middle" font-family="Georgia,serif" font-size="11" fill="#2E7DD8" opacity="0.5" letter-spacing="3">GENESIS AI</text>
+<line x1="636" y1="214" x2="660" y2="214" stroke="#2E7DD8" stroke-width="0.5" opacity="0.3"/>
+<line x1="740" y1="214" x2="764" y2="214" stroke="#2E7DD8" stroke-width="0.5" opacity="0.3"/>
+<circle cx="560" cy="50" r="2.5" fill="#A8D0F8" opacity="0.4"/>
+<circle cx="820" cy="40" r="2" fill="#C0B8F0" opacity="0.4"/>
+<circle cx="860" cy="200" r="3" fill="#A8D0F8" opacity="0.35"/>
+<rect width="900" height="260" fill="url(#v1_fog)"/>
+</g>
+<rect x="460" y="0" width="120" height="260" fill="url(#v1_left_blend)"/>
+</svg>

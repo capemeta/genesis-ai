@@ -1,0 +1,73 @@
+<svg viewBox="0 0 1400 260" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none">
+<defs>
+  <radialGradient id="v2_bg" cx="70%" cy="48%" r="58%">
+    <stop offset="0%" stop-color="#C8E0FF"/>
+    <stop offset="60%" stop-color="#E0EEFF"/>
+    <stop offset="100%" stop-color="#ECF3FF"/>
+  </radialGradient>
+  <radialGradient id="v2_purple" cx="100%" cy="0%" r="50%">
+    <stop offset="0%" stop-color="#D8CCFF" stop-opacity="0.55"/>
+    <stop offset="100%" stop-color="#ECF3FF" stop-opacity="0"/>
+  </radialGradient>
+  <radialGradient id="v2_fog" cx="13%" cy="52%" r="50%">
+    <stop offset="0%" stop-color="#ECF3FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#ECF3FF" stop-opacity="0"/>
+  </radialGradient>
+  <linearGradient id="v2_left_blend" x1="0%" y1="0%" x2="100%" y2="0%">
+    <stop offset="0%" stop-color="#E8F2FF" stop-opacity="1"/>
+    <stop offset="100%" stop-color="#E8F2FF" stop-opacity="0"/>
+  </linearGradient>
+  <filter id="v2_glow"><feGaussianBlur stdDeviation="6" result="blur"/><feMerge><feMergeNode in="blur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>
+</defs>
+<rect width="1400" height="260" fill="#E8F2FF"/>
+<g transform="translate(500 0)">
+<rect width="900" height="260" fill="#E8F2FF"/>
+<rect width="900" height="260" fill="url(#v2_bg)"/>
+<rect width="900" height="260" fill="url(#v2_purple)"/>
+<g fill="none" opacity="0.12">
+  <ellipse cx="720" cy="130" rx="240" ry="120" stroke="#5A8ED0" stroke-width="0.5"/>
+  <ellipse cx="720" cy="130" rx="210" ry="105" stroke="#5A8ED0" stroke-width="0.5"/>
+  <ellipse cx="720" cy="130" rx="180" ry="90" stroke="#5A8ED0" stroke-width="0.5"/>
+  <ellipse cx="720" cy="130" rx="150" ry="75" stroke="#5A8ED0" stroke-width="0.5"/>
+  <ellipse cx="720" cy="130" rx="120" ry="60" stroke="#5A8ED0" stroke-width="0.5"/>
+</g>
+<g stroke="#7AAEE0" fill="none" opacity="0.28">
+  <line x1="790" y1="100" x2="860" y2="65"/><line x1="795" y1="120" x2="875" y2="105"/><line x1="793" y1="140" x2="873" y2="150"/>
+  <line x1="788" y1="158" x2="855" y2="185"/><line x1="778" y1="172" x2="840" y2="210"/>
+  <line x1="720" y1="66" x2="700" y2="20"/><line x1="740" y1="70" x2="780" y2="25"/>
+  <line x1="700" y1="65" x2="660" y2="22"/>
+  <line x1="720" y1="196" x2="700" y2="245"/><line x1="740" y1="192" x2="775" y2="238"/>
+  <line x1="700" y1="196" x2="662" y2="242"/>
+  <line x1="652" y1="100" x2="570" y2="65"/><line x1="646" y1="120" x2="555" y2="108"/><line x1="645" y1="140" x2="555" y2="145"/>
+  <line x1="650" y1="158" x2="568" y2="180"/>
+</g>
+<g fill="#7AAEE0" opacity="0.45">
+  <circle cx="860" cy="65" r="3.5"/><circle cx="875" cy="105" r="3.5"/><circle cx="873" cy="150" r="3.5"/>
+  <circle cx="855" cy="185" r="3.5"/><circle cx="840" cy="210" r="3"/>
+  <circle cx="700" cy="20" r="3"/><circle cx="780" cy="25" r="3"/><circle cx="660" cy="22" r="3"/>
+  <circle cx="700" cy="245" r="3"/><circle cx="775" cy="238" r="3"/><circle cx="662" cy="242" r="3"/>
+  <circle cx="570" cy="65" r="3.5"/><circle cx="555" cy="108" r="3.5"/><circle cx="555" cy="145" r="3.5"/><circle cx="568" cy="180" r="3.5"/>
+</g>
+<g fill="#9AAAD8" opacity="0.35">
+  <circle cx="760" cy="72" r="4"/><circle cx="790" cy="95" r="4"/>
+  <circle cx="798" cy="130" r="4"/>
+  <circle cx="790" cy="165" r="4"/><circle cx="762" cy="188" r="4"/>
+  <circle cx="720" cy="196" r="4"/><circle cx="680" cy="188" r="4"/>
+  <circle cx="652" cy="165" r="4"/><circle cx="644" cy="130" r="4"/>
+  <circle cx="652" cy="96" r="4"/><circle cx="680" cy="72" r="4"/>
+  <circle cx="720" cy="64" r="4"/>
+</g>
+<circle cx="720" cy="130" r="85" fill="#B0CCFF" opacity="0.18" filter="url(#v2_glow)"/>
+<circle cx="720" cy="130" r="64" fill="#D8EEFF" opacity="0.92"/>
+<circle cx="720" cy="130" r="52" fill="#A8D0F8" opacity="0.95"/>
+<circle cx="720" cy="130" r="40" fill="#6AAEE8" opacity="0.95"/>
+<circle cx="720" cy="130" r="28" fill="#2E7DD8" opacity="0.95"/>
+<circle cx="720" cy="130" r="17" fill="#0A50B8" opacity="0.95"/>
+<circle cx="720" cy="130" r="6" fill="#082E80" opacity="0.95"/>
+<path d="M 675,86 A 64,64 0 0,1 765,86" fill="none" stroke="#EAF4FF" stroke-width="0.9" stroke-linecap="round" opacity="0.7"/>
+<text x="720" y="145" text-anchor="middle" font-family="Georgia,serif" font-size="52" font-weight="400" fill="#FFFFFF" opacity="0.95">G</text>
+<text x="720" y="214" text-anchor="middle" font-family="Georgia,serif" font-size="10" fill="#2E6DC8" opacity="0.45" letter-spacing="4">GENESIS  AI</text>
+<rect width="900" height="260" fill="url(#v2_fog)"/>
+</g>
+<rect x="460" y="0" width="120" height="260" fill="url(#v2_left_blend)"/>
+</svg>

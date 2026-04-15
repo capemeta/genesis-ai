@@ -1,0 +1,238 @@
+name: genesis-ai
+# 生产环境配置 - 高可用部署
+# 3 个 Master 节点 + 3 个 Volume 节点 + Filer + S3
+
+services:
+  # Master 节点 1
+  master1:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-master1
+    ports:
+      - "9333:9333"
+      - "19333:19333"
+    volumes:
+      - ./data/master1:/data
+    command: >
+      master
+      -ip=master1
+      -port=9333
+      -mdir=/data
+      -peers=master1:9333,master2:9334,master3:9335
+      -defaultReplication=010
+    networks:
+      - seaweedfs-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9333/cluster/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Master 节点 2
+  master2:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-master2
+    ports:
+      - "9334:9334"
+      - "19334:19334"
+    volumes:
+      - ./data/master2:/data
+    command: >
+      master
+      -ip=master2
+      -port=9334
+      -mdir=/data
+      -peers=master1:9333,master2:9334,master3:9335
+      -defaultReplication=010
+    networks:
+      - seaweedfs-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9334/cluster/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Master 节点 3
+  master3:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-master3
+    ports:
+      - "9335:9335"
+      - "19335:19335"
+    volumes:
+      - ./data/master3:/data
+    command: >
+      master
+      -ip=master3
+      -port=9335
+      -mdir=/data
+      -peers=master1:9333,master2:9334,master3:9335
+      -defaultReplication=010
+    networks:
+      - seaweedfs-network
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9335/cluster/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Volume 节点 1
+  volume1:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-volume1
+    ports:
+      - "8321:8080"
+      - "18080:18080"
+    volumes:
+      - ./data/volume1:/data
+    command: >
+      volume
+      -ip=volume1
+      -port=8080
+      -dir=/data
+      -max=200
+      -mserver=master1:9333,master2:9334,master3:9335
+      -dataCenter=dc1
+      -rack=rack1
+    networks:
+      - seaweedfs-network
+    depends_on:
+      - master1
+      - master2
+      - master3
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8080/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Volume 节点 2
+  volume2:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-volume2
+    ports:
+      - "8322:8081"
+      - "18081:18081"
+    volumes:
+      - ./data/volume2:/data
+    command: >
+      volume
+      -ip=volume2
+      -port=8081
+      -dir=/data
+      -max=200
+      -mserver=master1:9333,master2:9334,master3:9335
+      -dataCenter=dc1
+      -rack=rack2
+    networks:
+      - seaweedfs-network
+    depends_on:
+      - master1
+      - master2
+      - master3
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8081/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Volume 节点 3
+  volume3:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-volume3
+    ports:
+      - "8323:8082"
+      - "18082:18082"
+    volumes:
+      - ./data/volume3:/data
+    command: >
+      volume
+      -ip=volume3
+      -port=8082
+      -dir=/data
+      -max=200
+      -mserver=master1:9333,master2:9334,master3:9335
+      -dataCenter=dc1
+      -rack=rack3
+    networks:
+      - seaweedfs-network
+    depends_on:
+      - master1
+      - master2
+      - master3
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8082/status"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Filer 服务
+  filer:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-filer
+    ports:
+      - "8331:8888"
+      - "18888:18888"
+    volumes:
+      - ./data/filer:/data
+      - ./config/filer.toml:/etc/seaweedfs/filer.toml
+    command: >
+      filer
+      -ip=filer
+      -port=8888
+      -master=master1:9333,master2:9334,master3:9335
+      -dataCenter=dc1
+    networks:
+      - seaweedfs-network
+    depends_on:
+      - master1
+      - master2
+      - master3
+      - volume1
+      - volume2
+      - volume3
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8888/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # S3 服务
+  s3:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-s3
+    ports:
+      - "8341:8333"
+    environment:
+      - WEED_S3_AUDITLOG_DIR=/data/audit
+    volumes:
+      - ./data/s3:/data
+      - ./config/s3.json:/etc/seaweedfs/s3.json
+    command: >
+      s3
+      -filer=filer:8888
+      -ip=s3
+      -port=8333
+      -config=/etc/seaweedfs/s3.json
+      -domainName=s3.yourdomain.com
+    networks:
+      - seaweedfs-network
+    depends_on:
+      - filer
+    restart: always
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:8333/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+
+networks:
+  seaweedfs-network:
+    driver: bridge

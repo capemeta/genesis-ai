@@ -1,0 +1,43 @@
+# Filer 配置文件
+
+# 数据中心
+[filer.options]
+# 递归删除时的并发数
+recursive_delete_concurrency = 100
+
+# 默认副本策略
+[filer.options.default_replication]
+# 000 = 无副本
+# 001 = 1个副本在同一机架
+# 010 = 1个副本在同一数据中心的不同机架
+# 100 = 1个副本在不同数据中心
+replication = "000"
+
+# 使用 LevelDB 作为元数据存储（默认）
+[leveldb2]
+enabled = true
+dir = "/data/filerdb"
+
+# 可选：使用 PostgreSQL 作为元数据存储
+# [postgres]
+# enabled = false
+# hostname = "postgres"
+# port = 5432
+# username = "seaweedfs"
+# password = "seaweedfs"
+# database = "seaweedfs"
+# connection_max_idle = 100
+# connection_max_open = 100
+# connection_max_lifetime_seconds = 0
+
+# 可选：使用 Redis 作为元数据存储
+# [redis2]
+# enabled = false
+# address = "redis:6379"
+# password = ""
+# database = 0
+
+# 通知配置（可选）
+# [notification.log]
+# enabled = true
+# directory = "/data/logs"

@@ -1,0 +1,60 @@
+由于目前证书最长有效期只有一年，所以更换证书会变成一项非常频繁且普遍的变更，因此整理了步骤减少变更风险和沟通成本。
+
+### 一、检查证书属性（过期时间、包含域名）
+
+### 二、检查证书完整性（是否包含中间证书）
+
+- **如果无中间证书，可以让客户找厂家生成或者使用windows证书查看工具生成，或者使用互联网工具生成https://myssl.com/chain_download.html**
+  - **这里使用互联网工具生成https://myssl.com/chain_download.html 生成chain.crt证书并下载下来。**
+- 准备好三个证书文件（名称不限）
+  - **server.crt 完整公钥**（包含中间证书）：Windows下双击打开，可以看到“颁发给”客户的域名；证书里面第一段内容为服务器证书，后面为中间证书。如果只有一段，则说明证书链不完整，需要补充中间证书
+  - **server.key 私钥**：和公钥一一对应
+  - **chain.crt 中间证书**：Windows下双击打开，可以看到“颁发给”和“颁发给” 都是证书机构，大部分客户这个文件命名都很随意；
+
+### 三、部署证书
+
+#### 1、检查服务证书文件
+
+- **查看server.key server.crt chain.crt的名称。**
+
+~~~shell
+$ grep -E 'ssl_certificate|ssl_certificate_key' /home/coremail/conf/nginx.conf
+
+$ grep -E 'SSLCertFileName|SSLKeyFileName|SSLChainCertFileName' /home/coremail/conf/services.cf
+~~~
+
+- **获取新的公钥证书、私钥和中间证书命名为：server.crt  server.key  chain.crt。**
+
+  ![image-20230928163551324](C:\Users\csl2021\AppData\Roaming\Typora\typora-user-images\image-20230928163551324.png)
+
+- 确认SSLChainCertFileName=是否为空，如果为空则使用confutil工具编辑services.cf补上具体路径
+  - 例如将SSLChainCertFileName="" 改为SSLChainCertFileName="$(COREMAIL_HOME)/conf/chain.crt" 
+
+#### 2、重命名备份证书
+
+- **用cp命令备份。**
+
+  ~~~shell
+  cp /home/coremail/conf/server.crt cp /home/coremail/conf/server.crt{yyyymmdd}
+  cp /home/coremail/conf/server.key cp /home/coremail/conf/server.key{yyyymmdd}
+  cp /home/coremail/conf/chain.crt cp /home/coremail/conf/chain.crt{yyyymmdd}
+  ~~~
+
+#### 3、更换新证书
+
+- **查看server.key server.crt chain.crt的名称。**
+
+### 四、重启服务
+
+/home/coremail/bin/coremail restart nginx imapsvr pop3svr mtasvr 
+
+### 五、检查服务
+
+使用下面命令检查服务是否一直在重启，如果发现有服务不停重启，则说明服务异常，需要根据具体的服务日志进行分析，比如mtasvr.log,pop3svr.log等等
+tail -f /home/coremail/logs/coremail.log 
+
+### 六、检查更换是否生效（主要是证书过期时间）
+
+1、在服务器上检查证书过期时间
+echo | openssl s_client -connect 127.0.0.1:443 -showcerts|sed -n '/BEGIN CERTIFICATE/,/END CERT/p' |openssl x509 -noout -dates 
+2、在浏览器检查证书过期时间

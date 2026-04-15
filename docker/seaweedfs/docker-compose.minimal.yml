@@ -1,0 +1,47 @@
+name: genesis-ai
+# 最小资源配置 - 适合内存紧张的开发环境
+# 内存限制：256MB，CPU 限制：0.5 核心
+
+services:
+  seaweedfs:
+    image: chrislusf/seaweedfs:latest
+    container_name: seaweedfs-minimal
+    ports:
+      - "8301:9333"   # Master HTTP API
+      - "8302:8080"   # Volume HTTP API
+      - "8303:8888"   # Filer HTTP API
+      - "8304:8333"   # S3 API
+    volumes:
+      - ./data:/data
+      - ./config/s3.json:/etc/seaweedfs/s3.json
+      - ./config/filer.toml:/etc/seaweedfs/filer.toml
+    command: >
+      server
+      -dir=/data
+      -s3
+      -s3.config=/etc/seaweedfs/s3.json
+      -s3.port=8333
+      -filer
+      -volume.max=50
+      -master.volumeSizeLimitMB=512
+    # 最小资源配置
+    deploy:
+      resources:
+        limits:
+          memory: 256M      # 最大内存 256MB
+          cpus: '0.5'       # 最大 0.5 个 CPU 核心
+        reservations:
+          memory: 64M       # 预留内存 64MB
+          cpus: '0.1'       # 预留 0.1 个 CPU 核心
+    networks:
+      - seaweedfs-network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-O-", "http://localhost:9333/cluster/status"]
+      interval: 60s       # 降低健康检查频率
+      timeout: 10s
+      retries: 3
+
+networks:
+  seaweedfs-network:
+    driver: bridge

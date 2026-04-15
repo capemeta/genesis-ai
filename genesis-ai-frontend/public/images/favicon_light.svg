@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="128" height="128" viewBox="-64 -64 128 128" role="img" aria-label="Genesis 天青 logo（深色背景用）">
+  <title>Genesis 天青 · 深色背景版</title>
+  <g>
+    <circle cx="0" cy="0" r="48" fill="#B8DFF8" stroke="rgba(255,255,255,0.28)" stroke-width="0.85"/>
+    <circle cx="0" cy="0" r="39" fill="#88C8F5"/>
+    <circle cx="0" cy="0" r="30" fill="#6AAEE8"/>
+    <circle cx="0" cy="0" r="21" fill="#2E7DD8"/>
+    <circle cx="0" cy="0" r="12" fill="#0A50B8"/>
+    <circle cx="0" cy="0" r="4" fill="#082E80"/>
+    <path d="M -34,-34 A 48,48 0 0,1 34,-34" fill="none" stroke="#F0F8FF" stroke-width="0.85" stroke-linecap="round" opacity="0.95"/>
+    <text x="0" y="8" text-anchor="middle" font-family="Georgia, serif" font-size="42" font-weight="400" fill="#FFFFFF" stroke="rgba(6, 28, 72, 0.45)" stroke-width="0.45" paint-order="stroke fill">G</text>
+  </g>
+</svg>

@@ -157,3 +157,5 @@ docker/.env
 .claude
 /doc/*/
 /doc/**/
+!/doc/assets/
+!/doc/assets/**

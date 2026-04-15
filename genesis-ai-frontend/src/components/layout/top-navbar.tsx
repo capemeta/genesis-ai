@@ -148,6 +148,23 @@ export function TopNavbar() {
 
         {/* Right Side Actions */}
         <div className='flex items-center gap-1'>
+          {/* GitHub 仓库入口 */}
+          <Button asChild variant='ghost' size='icon' className='h-9 w-9 rounded-full p-0 hover:bg-muted/50 transition-colors'>
+            <a
+              href='https://github.com/capemeta/genesis-ai'
+              target='_blank'
+              rel='noreferrer'
+              aria-label='打开 Genesis AI GitHub 仓库'
+              title='GitHub'
+            >
+              <img
+                src={withAppAssetPath('images/github.svg')}
+                alt='GitHub'
+                className='h-5 w-5'
+              />
+            </a>
+          </Button>
+
           {/* Notifications */}
           <Button
             variant='ghost'
